@@ -10,7 +10,7 @@ runHive = do
     display = InWindow "Улей" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
     fps     = 0      -- кол-во кадров в секунду
-	
+
 -- =========================================
 -- Модель игры
 -- =========================================
@@ -18,26 +18,26 @@ runHive = do
 -- | Насекомые
 data Insect = Queen | Spider | Beetle | Hopper | Ant
   deriving (Eq, Show)
-	
+
 -- | Клетка
 data Cell = Cell
-  { x :: Int		-- x-координата
-  , y :: Int		-- y-координата
-  , insects :: [Insect]	-- Насекомые в клетке
+  { x :: Int    -- x-координата
+  , y :: Int    -- y-координата
+  , insects :: [(Player,Insect)]    -- Насекомые в клетке
   }
 
 -- | Игрок				
-data Player = Black | Beige				
+data Player = Black | Beige
 
 -- | Игровое поле
 type Board = [Cell]
 
 -- | Состояние игры
 data Game = Game
-	{ gameBoard  :: Board       -- ^ Игровое поле.
-	, gamePlayer :: Player        -- ^ Чей ход?
-	, gameWinner :: Maybe Player  -- ^ Победитель.
-	}
+  { gameBoard  :: Board    -- Игровое поле.
+  , gamePlayer :: Player    -- Чей ход?
+  , gameWinner :: Maybe Player    -- Победитель.
+  }
 
 -- | Начальное состояние игры.
 -- Игровое поле — пусто.
@@ -47,8 +47,8 @@ initGame = Game
   { gameBoard  = createCells 0 11
   , gamePlayer = Beige
   , gameWinner = Nothing
-  }	
-  
+  }
+
 -- | Создаем список из всех клеток поля
 createCells :: Int -> Int -> Board
 createCells xx yy
@@ -57,15 +57,15 @@ createCells xx yy
   | yy - xx >= 33 = this : createCells (xx + 1) (10 - xx)
   | otherwise = this : createCells xx (yy + 2)
   where
-		this = Cell { x = xx, y = yy, insects = []}
-		
+    this = Cell { x = xx, y = yy, insects = []}
+
 -- =========================================
 -- Отрисовка игры
 -- =========================================
 
 -- | Отобразить игровое поле.
 drawGame :: Game -> Picture
-drawGame (Game{gameBoard = board, gamePlayer = a, gameWinner = b}) = translate (-w) (-h) (scale cx cy (drawBoard board))
+drawGame (Game{gameBoard = board}) = translate (-w) (-h) (scale cx cy (drawBoard board))
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
@@ -78,14 +78,14 @@ drawBoard board = pictures (map drawCell board)
 
 -- | Нарисовать клетку
 drawCell :: Cell -> Picture
-drawCell (Cell {x = xx, y = yy, insects = ins}) = line
-								[ (a + 1 / 3, b)
-								, (a + 1, b)
-								, (a + 4 / 3, b + 1)
-								, (a + 1, b + 2)
-								, (a + 1 / 3, b + 2)
-								, (a, b + 1)
-								, (a + 1 / 3, b)]
+drawCell (Cell {x = xx, y = yy}) = line
+  [ (a + 1 / 3, b)
+  , (a + 1, b)
+  , (a + 4 / 3, b + 1)
+  , (a + 1, b + 2)
+  , (a + 1 / 3, b + 2)
+  , (a, b + 1)
+  , (a + 1 / 3, b)]
   where 
     a = fromIntegral xx
     b = fromIntegral yy
