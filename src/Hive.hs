@@ -1,6 +1,7 @@
 module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Juicy
 
 -- | Запустить игру
 runHive :: IO ()
@@ -8,7 +9,7 @@ runHive = do
   play display bgColor fps initGame drawGame handleGame updateGame
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
-    bgColor = white   -- цвет фона
+    bgColor = black   -- цвет фона
     fps     = 0      -- кол-во кадров в секунду
 
 -- =========================================
@@ -95,7 +96,7 @@ createPieces =
 
 -- | Отобразить игровое поле.
 drawGame :: Game -> Picture
-drawGame (Game{gameBoard = board}) = (scale cx cy (drawBoard board))
+drawGame (Game{gameBoard = board}) = scale cx cy (drawBoard board)
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
@@ -106,17 +107,20 @@ drawBoard board = pictures (map drawCell board)
 
 -- | Нарисовать клетку
 drawCell :: Cell -> Picture
-drawCell (Cell {x = xx, y = yy}) = line
+drawCell (Cell {x = xx, y = yy}) = color  pink (line
   [ (a - 1 / 3, b - 1)
   , (a + 1 / 3, b - 1)
   , (a + 2 / 3, b)
   , (a + 1 / 3, b + 1)
   , (a - 1 / 3, b + 1)
   , (a - 2 / 3, b)
-  , (a - 1 / 3, b - 1)]
+  , (a - 1 / 3, b - 1)])
   where 
     a = fromIntegral xx
     b = fromIntegral yy
+
+pink :: Color
+pink = makeColorI 255 175 200 255
 
 -- =========================================
 -- Обработка событий
@@ -149,7 +153,7 @@ boardHeight = 4 * numberOfPieces + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
-cellSizeX = 30
+cellSizeX = 35
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
