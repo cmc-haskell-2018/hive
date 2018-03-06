@@ -149,7 +149,7 @@ boardHeight = 4 * numberOfPieces + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
-cellSizeX = 30
+cellSizeX = 35
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
