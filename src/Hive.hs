@@ -13,7 +13,7 @@ runHive = do
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
-    fps     = 0      -- кол-во кадров в секунду
+    fps     = 10      -- кол-во кадров в секунду
 
 
 -- =========================================
