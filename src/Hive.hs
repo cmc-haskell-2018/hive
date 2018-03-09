@@ -3,7 +3,7 @@ module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
-
+import Data.List()
 
 -- | Запустить игру
 runHive :: IO ()
@@ -34,6 +34,8 @@ data Cell = Cell
   , yy :: Int    -- y-координата
   , insects :: [Piece]    -- Насекомые в клетке
   }
+  deriving (Eq)
+
   
 -- | Игрок				
 data Player = Beige | Black deriving (Show, Eq, Ord)
@@ -47,6 +49,11 @@ data Game = Game
   , gamePlayer :: Player    -- Чей ход?
   , gameWinner :: Maybe Player    -- Победитель.
   }
+  
+-- =========================================
+-- Инициализация
+-- =========================================
+
 
 
 -- =========================================
@@ -210,6 +217,7 @@ drawInsect (Cell {xx = x, yy = y, insects = (_,_,pic):_}) =
 
 -- | Обработка событий.
 handleGame :: Event -> Game -> Game
+handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
 handleGame _ = id
 
 
@@ -218,10 +226,52 @@ updateGame :: Float -> Game -> Game
 updateGame _ = id
 
 
+-- | Передвижение фишек (пока что - любых в любую позицию любым игроком)
+placeMark :: (Int, Int) -> Game -> Game
+placeMark (i, j) game =
+  case gameWinner game of
+    Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
+    Nothing | selectedCell == [] -> game -- | клетки с такими координатами не найдено
+            | (head selectedCell) == Cell { xx = i, yy = j, insects = []} -> game -- | клетка пуста (нет насекомого)
+            | otherwise -> game
+                            { gameBoard  = newBoard
+                            , gamePlayer = switchPlayer (gamePlayer game)
+                            , gameWinner = Nothing
+                            }
+  where 
+  -- юзается filter, а не find - так как find может возвращать Nothing и это не удобно при разборе на '|' чуть выше
+  -- если кто красиво поправит на find - будет молодец :)
+    selectedCell = filter (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
+    newBoard = deleteInsect (head selectedCell) (gameBoard game)
+
+-- | Удаление фишки из старой позиции (перед перемещением)
+deleteInsect :: Cell -> Board -> Board
+deleteInsect _ [] = []
+deleteInsect oldCell (x:xs) | oldCell == x = (Cell { xx = xx oldCell, yy = yy oldCell, insects = []}) : deleteInsect oldCell xs
+                            | otherwise = x : deleteInsect oldCell xs
+
+-- | Постановка фишки в новую позицию (после перемещения)
+putInsect :: Cell -> Board -> Board
+putInsect cell [] = [cell]
+putInsect cell (x:xs) | cell == x = (Cell { xx = xx cell, yy = yy cell, insects = insects cell}) : xs
+                      | otherwise = x : putInsect cell xs
+
+-- | Сменить текущего игрока
+switchPlayer :: Player -> Player
+switchPlayer Beige = Black
+switchPlayer Black = Beige
+
+-- | Получить координаты клетки под мышкой.
+mouseToCell :: Point -> (Int, Int)
+mouseToCell (x, y) = (i, j)
+  where
+    i = round (x / fromIntegral cellSizeX)
+    j = round (y / fromIntegral cellSizeY)
+
+
 -- =========================================
 -- Константы, параметры игры
 -- =========================================
-
 
 -- | Количество фишек у каждого игрока
 numberOfPieces :: Int
