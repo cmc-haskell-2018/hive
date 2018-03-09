@@ -35,6 +35,7 @@ data Cell = Cell
   , insects :: [Piece]    -- Насекомые в клетке
   }
   deriving (Eq)
+
   
 -- | Игрок				
 data Player = Beige | Black deriving (Show, Eq, Ord)
@@ -49,6 +50,12 @@ data Game = Game
   , gameWinner :: Maybe Player    -- Победитель.
   }
   
+-- =========================================
+-- Инициализация
+-- =========================================
+
+
+
 -- =========================================
 -- Инициализация
 -- =========================================
@@ -213,9 +220,11 @@ handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
 handleGame _ = id
 
+
 -- | Обновление игры.
 updateGame :: Float -> Game -> Game
 updateGame _ = id
+
 
 -- | Передвижение фишек (пока что - любых в любую позицию любым игроком)
 placeMark :: (Int, Int) -> Game -> Game
@@ -258,6 +267,7 @@ mouseToCell (x, y) = (i, j)
   where
     i = round (x / fromIntegral cellSizeX)
     j = round (y / fromIntegral cellSizeY)
+
 
 -- =========================================
 -- Константы, параметры игры
