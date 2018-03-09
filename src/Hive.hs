@@ -37,7 +37,8 @@ data Cell = Cell
   deriving (Eq)
   
 -- | Игрок				
-data Player = Beige | Black deriving (Show, Eq, Ord)
+data Player = Beige | Black
+  deriving (Show, Eq, Ord)
 
 -- | Поле
 type Board = [Cell]
