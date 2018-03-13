@@ -23,7 +23,7 @@ runHive = do
 
 
 -- | Насекомые
-data Insect = Queen | Spider | Beetle | Hopper | Ant
+data Insect = Queen | Spider | Beetle | Hopper | Ant | Empty
   deriving (Show, Eq, Ord)
 
 -- | Фишка
@@ -48,6 +48,7 @@ data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
   , gamePlayer :: Player    -- Чей ход?
   , gameWinner :: Maybe Player    -- Победитель.
+  , movableIns :: Maybe Insect    -- Передвигаемая фишка
   }
 
 --data MovableInsectInGame = MovableInsectInGame
@@ -75,6 +76,7 @@ gameWithImages images = Game
   { gameBoard  = createCells (-11) (-11) ++ createPieces images
   , gamePlayer = Beige
   , gameWinner = Nothing
+  , movableIns = Nothing
   }
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
@@ -216,7 +218,6 @@ drawInsect (Cell {xx = x, yy = y, insects = (_,_,pic):_}) =
 -- | Обработка событий.
 handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
-handleGame (EventKey (MouseButton RightButton) Down _ mouse) = placeMark (mouseToCell mouse)
 handleGame _ = id
 
 -- | Обновление игры.
@@ -224,22 +225,49 @@ updateGame :: Float -> Game -> Game
 updateGame _ = id
 
 -- | Передвижение фишек (пока что - любых в любую позицию любым игроком)
-placeMark :: (Int, Int) -> Game -> Game
+placeMark :: (Int, Int) -> Game -> (Game, Picture)
 placeMark (i, j) game =
   case gameWinner game of
-      Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
+      Just _ -> (game, blank)    -- | если есть победитель, то поставить фишку нельзя 
       Nothing ->
         case selectedCell of
-            Nothing -> game -- | клетки с такими координатами не найдено
-            Just _  | maybeCellToCell selectedCell == Cell  { xx = i, 
-                                                              yy = j, 
-                                                              insects = []
-                                                              } -> game -- | клетка пуста (нет насекомого)
-                    |otherwise -> game
-                        { gameBoard  = newBoard
-                        , gamePlayer = switchPlayer (gamePlayer game)
-                        , gameWinner = Nothing
-                        }
+            Nothing -> (game, blank) -- | клетки с такими координатами не найдено
+            Just _  ->
+              case movableIns game of
+                -- |  нужно переставить в клетку фишку,т.к movableIns не пусто
+                  Just _  |maybeCellToCell selectedCell == Cell  { xx = i,  -- клетка пуста (нет насекомого), ставим туда фишку                    
+                                                                  yy = j, 
+                                                                  insects = []
+                                                                  }  -> (game
+                                                                          { gameBoard  = newBoard
+                                                                          , gamePlayer = switchPlayer (gamePlayer game)
+                                                                          , gameWinner = Nothing
+                                                                          , movableIns = Nothing
+                                                                          } 
+                                                                          ,drawInsect Cell  { xx = i, 
+                                                                                              yy = j, 
+                                                                                              insects = (maybeInstoIns movableIns) : []
+                                                                                            })
+                -- |  movableIns не пусто значит мы берем фишку и удаляем ее со старой позиции
+                  Nothing | maybeCellToCell selectedCell == Cell  { xx = i,
+                                                                  yy = j, 
+                                                                  insects = []
+                                                                  }  -> (game, blank) -- | клетка пуста (нет насекомого), игрок просто тыкнул в пустую клетку
+                          |maybeCellToCell selectedCell == Cell  { xx = i, 
+                                                                  yy = j, 
+                                                                  insects = [] 
+                                                                  }  -> (game  -- | клетка не пуста , игрок хочет ее взять и перенести
+                                                                        { gameBoard  = newBoard
+                                                                        ,  gamePlayer = switchPlayer (gamePlayer game)
+                                                                        ,  gameWinner = Nothing                             
+                                                                        ,  movableIns = Nothing
+                                                                      }, blank)
+                          |otherwise -> )game
+                              { gameBoard  = newBoard
+                             , gamePlayer = switchPlayer (gamePlayer game)
+                             , gameWinner = Nothing
+                             , movableIns = Nothing
+                             }. blank)
   where 
   -- если кто красиво поправит на find - будет молодец :) ---------------                   пробую find)))
     selectedCell = find (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
@@ -261,6 +289,10 @@ placeMark (i, j) game =
 maybeCellToCell :: Maybe Cell -> Cell
 maybeCellToCell(Just p) = p
 maybeCellToCell Nothing = Cell{xx = 0, yy = 0, insects = []} -- просто пустая клетка
+
+maybeInstoIns  :: Maybe Insect ->  Insect
+maybeInstoIns (Just p) = p
+maybeInstoIns Nothing = Empty -- пусто нет насекомого
   
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Cell -> Board -> Board
