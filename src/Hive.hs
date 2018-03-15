@@ -3,7 +3,8 @@ module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
-import Data.List()
+import Data.List(find)
+
 
 -- | Запустить игру
 runHive :: IO ()
@@ -50,6 +51,12 @@ data Game = Game
   , gamePlayer :: Player    -- Чей ход?
   , gameWinner :: Maybe Player    -- Победитель.
   }
+
+--data MovableInsectInGame = MovableInsectInGame
+--  {x :: Int -- x-координата
+--  ,y :: Int -- y-координата
+--  ,insect_image :: String -- путь к картинке насекомого
+--  }
   
 -- =========================================
 -- Инициализация
@@ -77,8 +84,6 @@ gameWithImages images = Game
   , gamePlayer = Beige
   , gameWinner = Nothing
   }
-
-
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
@@ -219,6 +224,7 @@ drawInsect (Cell {xx = x, yy = y, insects = (_,_,pic):_}) =
 -- | Обработка событий.
 handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
+handleGame (EventKey (MouseButton RightButton) Down _ mouse) = placeMark (mouseToCell mouse)
 handleGame _ = id
 
 
@@ -231,20 +237,41 @@ updateGame _ = id
 placeMark :: (Int, Int) -> Game -> Game
 placeMark (i, j) game =
   case gameWinner game of
-    Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
-    Nothing | selectedCell == [] -> game -- | клетки с такими координатами не найдено
-            | (head selectedCell) == Cell { xx = i, yy = j, insects = []} -> game -- | клетка пуста (нет насекомого)
-            | otherwise -> game
-                            { gameBoard  = newBoard
-                            , gamePlayer = switchPlayer (gamePlayer game)
-                            , gameWinner = Nothing
-                            }
+      Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
+      Nothing ->
+        case selectedCell of
+            Nothing -> game -- | клетки с такими координатами не найдено
+            Just _  | maybeCellToCell selectedCell == Cell  { xx = i, 
+                                                              yy = j, 
+                                                              insects = []
+                                                              } -> game -- | клетка пуста (нет насекомого)
+                    |otherwise -> game
+                        { gameBoard  = newBoard
+                        , gamePlayer = switchPlayer (gamePlayer game)
+                        , gameWinner = Nothing
+                        }
   where 
+  -- если кто красиво поправит на find - будет молодец :) ---------------                   пробую find)))
+    selectedCell = find (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
+    newBoard = deleteInsect (maybeCellToCell selectedCell) (gameBoard game)
+    --Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
+    --Nothing | selectedCell == [] -> game -- | клетки с такими координатами не найдено
+      --      | (head selectedCell) == Cell { xx = i, yy = j, insects = []} -> game -- | клетка пуста (нет насекомого)
+      --      | otherwise -> game
+      --                      { gameBoard  = newBoard
+      --                      , gamePlayer = switchPlayer (gamePlayer game)
+      --                      , gameWinner = Nothing
+      --                      }
+  --where 
   -- юзается filter, а не find - так как find может возвращать Nothing и это не удобно при разборе на '|' чуть выше
   -- если кто красиво поправит на find - будет молодец :)
-    selectedCell = filter (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
-    newBoard = deleteInsect (head selectedCell) (gameBoard game)
-
+  --  selectedCell = filter (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
+  --  newBoard = deleteInsect (head selectedCell) (gameBoard game)
+-- | Переводит Maybe Cell в Cell
+maybeCellToCell :: Maybe Cell -> Cell
+maybeCellToCell(Just p) = p
+maybeCellToCell Nothing = Cell{xx = 0, yy = 0, insects = []} -- просто пустая клетка
+  
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Cell -> Board -> Board
 deleteInsect _ [] = []
