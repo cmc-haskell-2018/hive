@@ -4,6 +4,8 @@ module Hive where
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
 import Data.List()
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 -- | Запустить игру
 runHive :: IO ()
@@ -24,24 +26,32 @@ runHive = do
 -- | Насекомые
 data Insect = Queen | Spider | Beetle | Hopper | Ant
   deriving (Show, Eq, Ord)
+  
+-- | Координаты клетки
+type Coord = (Int, Int)
 
 -- | Фишка
 type Piece = (Player, Insect, Picture)
 
--- | Клетка
-data Cell = Cell
-  { xx :: Int    -- x-координата
-  , yy :: Int    -- y-координата
-  , insects :: [Piece]    -- Насекомые в клетке
-  }
-  deriving (Eq)
+-- | Клетка может содержать несколько фишек
+type Cell = [Piece]
 
+---- | Клетка
+--data Cell = Cell
+--  { xx :: Int    -- x-координата
+--  , yy :: Int    -- y-координата
+--  , insects :: [Piece]    -- Насекомые в клетке
+--  }
+--  deriving (Eq)
   
 -- | Игрок				
 data Player = Beige | Black deriving (Show, Eq, Ord)
 
+---- | Поле
+--type Board = [Cell]
+
 -- | Поле
-type Board = [Cell]
+type Board = Map Coord Cell
 
 -- | Состояние игры
 data Game = Game
@@ -49,12 +59,6 @@ data Game = Game
   , gamePlayer :: Player    -- Чей ход?
   , gameWinner :: Maybe Player    -- Победитель.
   }
-  
--- =========================================
--- Инициализация
--- =========================================
-
-
 
 -- =========================================
 -- Инициализация
@@ -72,7 +76,7 @@ initGame = gameWithImages <$> loadImages
   -- Первый игрок ходит бежевыми.
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
-  { gameBoard  = createCells (-11) (-11) ++ createPieces images
+  { gameBoard  = Map.union (createCells (-11) (-11)) (createPieces images)
   , gamePlayer = Beige
   , gameWinner = Nothing
   }
@@ -81,41 +85,40 @@ gameWithImages images = Game
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
-  | x > n = []
-  | x + y >= 2 * n = this : createCells (x + 1) (x + 1 - 2 * n)
-  | y - x >= 2 * n = this : createCells (x + 1) (- 2 * n - x - 1)
-  | otherwise = this : createCells x (y + 2)
+  | x > n = Map.empty
+  | x + y >= 2 * n = Map.insert (x, y) [] (createCells (x + 1) (x + 1 - 2 * n))
+  | y - x >= 2 * n = Map.insert (x, y) [] (createCells (x + 1) (- 2 * n - x - 1))
+  | otherwise = Map.insert (x, y) [] (createCells x (y + 2))
   where
-    this = Cell { xx = x, yy = y, insects = []}
     n = numberOfPieces
 
 
 -- | Создаем список из клеток, в которых вначале находятся фишки
 createPieces :: [Picture] -> Board
-createPieces pic =
-  [ Cell{xx = -x, yy = -10, insects = [(Beige, Queen, t 0)]}
-  , Cell{xx = -x, yy = -8, insects = [(Beige, Spider, t 1)]}
-  , Cell{xx = -x, yy = -6, insects = [(Beige, Spider, t 1)]}
-  , Cell{xx = -x, yy = -4, insects = [(Beige, Beetle, t 2)]}
-  , Cell{xx = -x, yy = -2, insects = [(Beige, Beetle, t 2)]}
-  , Cell{xx = -x, yy = 0, insects = [(Beige, Hopper, t 3)]}
-  , Cell{xx = -x, yy = 2, insects = [(Beige, Hopper, t 3)]}
-  , Cell{xx = -x, yy = 4, insects = [(Beige, Hopper, t 3)]}
-  , Cell{xx = -x, yy = 6, insects = [(Beige, Ant, t 4)]}
-  , Cell{xx = -x, yy = 8, insects = [(Beige, Ant, t 4)]}
-  , Cell{xx = -x, yy = 10, insects = [(Beige, Ant, t 4)]}
+createPieces pic = Map.fromList
+  [ ((-x, -10), [(Beige, Queen, t 0)])
+  , ((-x, -8), [(Beige, Spider, t 1)])
+  , ((-x, -6), [(Beige, Spider, t 1)])
+  , ((-x, -4), [(Beige, Beetle, t 2)])
+  , ((-x, -2), [(Beige, Beetle, t 2)])
+  , ((-x, 0), [(Beige, Hopper, t 3)])
+  , ((-x, 2), [(Beige, Hopper, t 3)])
+  , ((-x, 4), [(Beige, Hopper, t 3)])
+  , ((-x, 6), [(Beige, Ant, t 4)])
+  , ((-x, 8), [(Beige, Ant, t 4)])
+  , ((-x, 10), [(Beige, Ant, t 4)])
 
-  , Cell{xx = x, yy = -10, insects = [(Black, Queen, t 5)]}
-  , Cell{xx = x, yy = -8, insects = [(Black, Spider, t 6)]}
-  , Cell{xx = x, yy = -6, insects = [(Black, Spider, t 6)]}
-  , Cell{xx = x, yy = -4, insects = [(Black, Beetle, t 7)]}
-  , Cell{xx = x, yy = -2, insects = [(Black, Beetle, t 7)]}
-  , Cell{xx = x, yy = 0, insects = [(Black, Hopper, t 8)]}
-  , Cell{xx = x, yy = 2, insects = [(Black, Hopper, t 8)]}
-  , Cell{xx = x, yy = 4, insects = [(Black, Hopper, t 8)]}
-  , Cell{xx = x, yy = 6, insects = [(Black, Ant, t 9)]}
-  , Cell{xx = x, yy = 8, insects = [(Black, Ant, t 9)]}
-  , Cell{xx = x, yy = 10, insects = [(Black, Ant, t 9)]}]
+  , ((x, -10), [(Black, Queen, t 5)])
+  , ((x, -8), [(Black, Spider, t 6)])
+  , ((x, -6), [(Black, Spider, t 6)])
+  , ((x, -4), [(Black, Beetle, t 7)])
+  , ((x, -2), [(Black, Beetle, t 7)])
+  , ((x, 0), [(Black, Hopper, t 8)])
+  , ((x, 2), [(Black, Hopper, t 8)])
+  , ((x, 4), [(Black, Hopper, t 8)])
+  , ((x, 6), [(Black, Ant, t 9)])
+  , ((x, 8), [(Black, Ant, t 9)])
+  , ((x, 10), [(Black, Ant, t 9)])]
   where
     x = cellDistance + numberOfPieces
     t = takePic pic
@@ -174,15 +177,16 @@ drawGame (Game{gameBoard = board}) = pictures
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
-drawAllCells board = scale cx cy (pictures (map drawCell board))
+drawAllCells board = scale cx cy (pictures (map drawCell tl))
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
+    tl = Map.toList board
 
 
 -- | Рисуем клетку
-drawCell :: Cell -> Picture
-drawCell (Cell {xx = x, yy = y}) = color  black (line
+drawCell :: (Coord, Cell) -> Picture
+drawCell ((x, y),_) = color  black (line
   [ (a - 1 / 3, b - 1)
   , (a + 1 / 3, b - 1)
   , (a + 2 / 3, b)
@@ -197,13 +201,15 @@ drawCell (Cell {xx = x, yy = y}) = color  black (line
 
 -- | Рисуем всех насекомых
 drawAllInsects :: Board -> Picture
-drawAllInsects board = pictures(map drawInsect board)
+drawAllInsects board = pictures(map drawInsect tl)
+  where
+    tl = Map.toList board
 
 
 -- | Рисуем самое верхнее насекомое в клетке
-drawInsect :: Cell -> Picture
-drawInsect (Cell {insects = []}) = blank
-drawInsect (Cell {xx = x, yy = y, insects = (_,_,pic):_}) =
+drawInsect :: (Coord, Cell) -> Picture
+drawInsect (_, []) = blank
+drawInsect ((x, y), ((_, _, pic):_)) =
   translate kx ky pic
   where
     kx = fromIntegral (cellSizeX * x)
@@ -217,56 +223,13 @@ drawInsect (Cell {xx = x, yy = y, insects = (_,_,pic):_}) =
 
 -- | Обработка событий.
 handleGame :: Event -> Game -> Game
-handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
+--handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
 handleGame _ = id
 
 
 -- | Обновление игры.
 updateGame :: Float -> Game -> Game
 updateGame _ = id
-
-
--- | Передвижение фишек (пока что - любых в любую позицию любым игроком)
-placeMark :: (Int, Int) -> Game -> Game
-placeMark (i, j) game =
-  case gameWinner game of
-    Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
-    Nothing | selectedCell == [] -> game -- | клетки с такими координатами не найдено
-            | (head selectedCell) == Cell { xx = i, yy = j, insects = []} -> game -- | клетка пуста (нет насекомого)
-            | otherwise -> game
-                            { gameBoard  = newBoard
-                            , gamePlayer = switchPlayer (gamePlayer game)
-                            , gameWinner = Nothing
-                            }
-  where 
-  -- юзается filter, а не find - так как find может возвращать Nothing и это не удобно при разборе на '|' чуть выше
-  -- если кто красиво поправит на find - будет молодец :)
-    selectedCell = filter (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
-    newBoard = deleteInsect (head selectedCell) (gameBoard game)
-
--- | Удаление фишки из старой позиции (перед перемещением)
-deleteInsect :: Cell -> Board -> Board
-deleteInsect _ [] = []
-deleteInsect oldCell (x:xs) | oldCell == x = (Cell { xx = xx oldCell, yy = yy oldCell, insects = []}) : deleteInsect oldCell xs
-                            | otherwise = x : deleteInsect oldCell xs
-
--- | Постановка фишки в новую позицию (после перемещения)
-putInsect :: Cell -> Board -> Board
-putInsect cell [] = [cell]
-putInsect cell (x:xs) | cell == x = (Cell { xx = xx cell, yy = yy cell, insects = insects cell}) : xs
-                      | otherwise = x : putInsect cell xs
-
--- | Сменить текущего игрока
-switchPlayer :: Player -> Player
-switchPlayer Beige = Black
-switchPlayer Black = Beige
-
--- | Получить координаты клетки под мышкой.
-mouseToCell :: Point -> (Int, Int)
-mouseToCell (x, y) = (i, j)
-  where
-    i = round (x / fromIntegral cellSizeX)
-    j = round (y / fromIntegral cellSizeY)
 
 
 -- =========================================
