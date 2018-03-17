@@ -225,66 +225,27 @@ updateGame :: Float -> Game -> Game
 updateGame _ = id
 
 -- | Передвижение фишек (пока что - любых в любую позицию любым игроком)
-placeMark :: (Int, Int) -> Game -> (Game, Picture)
+placeMark :: (Int, Int) -> Game -> Game
 placeMark (i, j) game =
   case gameWinner game of
-      Just _ -> (game, blank)    -- | если есть победитель, то поставить фишку нельзя 
+      Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
       Nothing ->
         case selectedCell of
-            Nothing -> (game, blank) -- | клетки с такими координатами не найдено
-            Just _  ->
-              case movableIns game of
-                -- |  нужно переставить в клетку фишку,т.к movableIns не пусто
-                  Just _  |maybeCellToCell selectedCell == Cell  { xx = i,  -- клетка пуста (нет насекомого), ставим туда фишку                    
-                                                                  yy = j, 
-                                                                  insects = []
-                                                                  }  -> (game
-                                                                          { gameBoard  = newBoard
-                                                                          , gamePlayer = switchPlayer (gamePlayer game)
-                                                                          , gameWinner = Nothing
-                                                                          , movableIns = Nothing
-                                                                          } 
-                                                                          ,drawInsect Cell  { xx = i, 
-                                                                                              yy = j, 
-                                                                                              insects = (maybeInstoIns movableIns) : []
-                                                                                            })
-                -- |  movableIns не пусто значит мы берем фишку и удаляем ее со старой позиции
-                  Nothing | maybeCellToCell selectedCell == Cell  { xx = i,
-                                                                  yy = j, 
-                                                                  insects = []
-                                                                  }  -> (game, blank) -- | клетка пуста (нет насекомого), игрок просто тыкнул в пустую клетку
-                          |maybeCellToCell selectedCell == Cell  { xx = i, 
-                                                                  yy = j, 
-                                                                  insects = [] 
-                                                                  }  -> (game  -- | клетка не пуста , игрок хочет ее взять и перенести
-                                                                        { gameBoard  = newBoard
-                                                                        ,  gamePlayer = switchPlayer (gamePlayer game)
-                                                                        ,  gameWinner = Nothing                             
-                                                                        ,  movableIns = Nothing
-                                                                      }, blank)
-                          |otherwise -> )game
-                              { gameBoard  = newBoard
-                             , gamePlayer = switchPlayer (gamePlayer game)
-                             , gameWinner = Nothing
-                             , movableIns = Nothing
-                             }. blank)
+            Nothing -> game -- | клетки с такими координатами не найдено
+            Just _  | maybeCellToCell selectedCell == Cell  { xx = i, 
+                                                              yy = j, 
+                                                              insects = []
+                                                              } -> game -- | клетка пуста (нет насекомого)
+                    |otherwise -> game
+                        { gameBoard  = newBoard
+                        , gamePlayer = switchPlayer (gamePlayer game)
+                        , gameWinner = Nothing
+                        }
   where 
   -- если кто красиво поправит на find - будет молодец :) ---------------                   пробую find)))
     selectedCell = find (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
     newBoard = deleteInsect (maybeCellToCell selectedCell) (gameBoard game)
-    --Just _ -> game    -- | если есть победитель, то поставить фишку нельзя 
-    --Nothing | selectedCell == [] -> game -- | клетки с такими координатами не найдено
-      --      | (head selectedCell) == Cell { xx = i, yy = j, insects = []} -> game -- | клетка пуста (нет насекомого)
-      --      | otherwise -> game
-      --                      { gameBoard  = newBoard
-      --                      , gamePlayer = switchPlayer (gamePlayer game)
-      --                      , gameWinner = Nothing
-      --                      }
-  --where 
-  -- юзается filter, а не find - так как find может возвращать Nothing и это не удобно при разборе на '|' чуть выше
-  -- если кто красиво поправит на find - будет молодец :)
-  --  selectedCell = filter (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
-  --  newBoard = deleteInsect (head selectedCell) (gameBoard game)
+
 -- | Переводит Maybe Cell в Cell
 maybeCellToCell :: Maybe Cell -> Cell
 maybeCellToCell(Just p) = p
