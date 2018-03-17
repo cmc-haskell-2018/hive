@@ -1,10 +1,10 @@
 module Hive where
 
-
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
-import Data.List(find)
+--import Data.List(find)
 import Data.Map (Map)
+import Data.Maybe
 import qualified Data.Map as Map
 -- | Запустить игру
 runHive :: IO ()
@@ -35,42 +35,46 @@ type Piece = (Player, Insect, Picture)
 -- | Клетка может содержать несколько фишек
 type Cell = [Piece]
 
--- | Игрок				
+-- | Поле
+type Board = Map Coord Cell
+
+-- | Фишка с координатами
+type Movable = (Coord, Piece)
+
+-- | Игрок
 data Player = Beige | Black
   deriving (Show, Eq, Ord)
 
--- | Поле
-type Board = Map Coord Cell
+-- | Окончание игры
+data Ending = Win Player | Tie
 
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
   , gamePlayer :: Player    -- Чей ход?
-  , movablePieceInGame :: Maybe Piece  -- Nothing никакая фишка не перемещается, иначе указана перемещаемая фишка
+  , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
+  , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
   }
 
-data GameEnding = Win Player | Tie
-  
+
 -- =========================================
 -- Инициализация
 -- =========================================
 
 
--- | Начальное состояние игры.
--- Пробуем загрузить изображения
+-- | Начальное состояние игры
 initGame :: IO Game
 initGame = gameWithImages <$> loadImages
 
-
-  -- | Инициализировать экран с заданными изображениями.
-  -- Игровое поле — пусто.
-  -- Первый игрок ходит бежевыми.
+  -- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
-  { gameBoard  = Map.union (createCells (-11) (-11)) (createPieces images)
-  , gamePlayer = Beige
-  , movablePieceInGame = Nothing
+  { gameBoard  = Map.union (createCells (-11) (-11)) (createPieces images)    -- игровое поле - пусто
+  , gamePlayer = Beige    -- первый игрок ходит бежевыми
+  , gameMovable = Nothing    -- фишка пока что не перемещается
+  , gameEnding = Nothing    -- игра не окончена
   }
+  
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
@@ -80,7 +84,6 @@ createCells x y
   | otherwise = Map.insert (x, y) [] (createCells x (y + 2))
   where
     n = numberOfPieces
-
 
 -- | Создаем список из клеток, в которых вначале находятся фишки
 createPieces :: [Picture] -> Board
@@ -111,8 +114,8 @@ createPieces pic = Map.fromList
   where
     x = cellDistance + numberOfPieces
     t = takePic pic
- 
-    -- Взять Картинку из списка по номеру	
+
+    -- Взять картинку из списка по номеру (кажется, такой подход абсолютно отвратителен, но я не уверена)
     takePic :: [Picture] -> Int -> Picture
     takePic [] _ = blank
     takePic (p : ps) n
@@ -142,9 +145,8 @@ loadPieceImage s = fmap (translate 0 0 . scale k k)
 
 -- | Загрузка изображений всех фишек в нужном масштабе.
 loadImages :: IO [Picture]
-loadImages = listToIO (loadPieceImage <$> allImageNames)
+loadImages = listToIO $ loadPieceImage <$> allImageNames
   where
-
     -- | Переводит список IO a в IO списка a
     listToIO :: [IO a] -> IO [a]
     listToIO [] = return []
@@ -158,42 +160,39 @@ loadImages = listToIO (loadPieceImage <$> allImageNames)
 -- =========================================
 
 
--- | Рисуем игровое поле.
+-- | Рисуем всё
 drawGame :: Game -> Picture
-drawGame (Game{gameBoard = board}) = pictures
+drawGame Game{gameBoard = board} = pictures
   [ drawAllCells board
   , drawAllInsects board]
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
-drawAllCells board = scale cx cy (pictures (map drawCell tl))
+drawAllCells board = scale cx cy $ pictures $ map drawCell tl
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
     tl = Map.toList board
 
-
 -- | Рисуем клетку
 drawCell :: (Coord, Cell) -> Picture
-drawCell ((x, y),_) = color  black (line
+drawCell ((x, y),_) = color  black $ line
   [ (a - 1 / 3, b - 1)
   , (a + 1 / 3, b - 1)
   , (a + 2 / 3, b)
   , (a + 1 / 3, b + 1)
   , (a - 1 / 3, b + 1)
   , (a - 2 / 3, b)
-  , (a - 1 / 3, b - 1)])
+  , (a - 1 / 3, b - 1)]
   where 
     a = fromIntegral x
     b = fromIntegral y
-
 
 -- | Рисуем всех насекомых
 drawAllInsects :: Board -> Picture
 drawAllInsects board = pictures(map drawInsect tl)
   where
     tl = Map.toList board
-
 
 -- | Рисуем самое верхнее насекомое в клетке
 drawInsect :: (Coord, Cell) -> Picture
@@ -210,91 +209,98 @@ drawInsect ((x, y), ((_, _, pic):_)) =
 -- =========================================
 
 
--- | Обработка событий.
+-- | Обработка нажатия клавиш мыши
 handleGame :: Event -> Game -> Game
---handleGame (EventKey (MouseButton LeftButton) Down _ mouse) = placeMark (mouseToCell mouse)
-handleGame _ = id
--- handleGame (EventKey (MouseButton RightButton) Down _ mouse) = placeMark (mouseToCell mouse)
+handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
+  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
+  | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
+  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
+  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
+  | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
+  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+handleGame _ game = game
 
--- | Обновление игры.
-updateGame :: Float -> Game -> Game
-updateGame _ = id
+-- | Взять фишку с координатами под мышкой, если возможно
+takePiece :: Point -> Game -> Game
+takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
+  | pieces == [] = game
+  | pieceColor top /= player = game
+  | possibleMoves movable board == [] = game
+  | otherwise = Game
+    { gameBoard = deleteInsect (i, j) board
+    , gamePlayer = player
+    , gameMovable = Just movable
+    , gameEnding = Nothing}
+  where
+    i = round (x / fromIntegral cellSizeX)
+    j = round (y / fromIntegral cellSizeY)
+    pieces = fromMaybe [] $ Map.lookup (i, j) board    -- список фишек в клетке с нужными координатами
+    top = head pieces    -- самая верхняя фишка в списке
+    movable = ((i, j), top)
+    pieceColor (p, _, _) = p
 
-=======
--- | Передвижение фишек (пока что в любую позицию любым игроком)
-placeMark :: (Int, Int) -> Game -> Game
-placeMark (i, j) game =
-  case winner (gameBoard game) of
-      Just _ -> game    -- | если есть победитель/ничья, то поставить фишку нельзя 
-      Nothing ->
-        case movablePieceInGame game of -- как уже говорили - если хранится Nothing, то новый ход, если фишка - то ставим ее
-            Nothing | maybeCellToCell selectedCell == Cell  { xx = i, -- тыкнули по пустому полю или клетке => фишка не выбрана для движения
-                                                              yy = j, 
-                                                              insects = []
-                                                              } -> game 
-                    |otherwise -> game -- | клетка с насекомым - удаляем с поля для дальнейшего передвижения
-                        { gameBoard  = newBoardDel
-                        , gamePlayer = switchPlayer (gamePlayer game)
-                        , movablePieceInGame = (pieceDel (insects (maybeCellToCell selectedCell))) -- Запоминаем удаленную фишку
-                        }
-            movePiece | maybeCellToCell selectedCell == Cell { xx = i -- какая-то клетка движется и выбранное поле пусто - поставить фишку
-                                                             , yy = j 
-                                                             , insects = []
-                                                             } -> game { gameBoard  = putInsect Cell{xx = xx (maybeCellToCell selectedCell) , yy = yy (maybeCellToCell selectedCell), insects = maybePieceToListPiece movePiece} (gameBoard game)
--- не смогла запихнуть <putInsect...> в where - так как тогда не виден аргумент movePiece, инет пишет что надо юзать let - но я видно криворукая, let не вышел))) )
-                                                                       , gamePlayer = switchPlayer (gamePlayer game)
-                                                                       , movablePieceInGame = Nothing
-                                                                       }
-                      | otherwise -> game
-  where 
-    selectedCell = find (\cell -> ((xx cell == i) && (yy cell == j))) (gameBoard game)
-    newBoardDel = deleteInsect (maybeCellToCell selectedCell) (gameBoard game)
-    pieceDel :: [Piece] -> Maybe Piece -- Удаляемая фишку - из хвоста списка - то есть самую верхнюю на конкретной клетке
-    pieceDel [] = Nothing
-    pieceDel [x] = Just x
-    pieceDel (_:xs) = pieceDel xs
-  
--- | Переводит Maybe Cell в Cell
-maybeCellToCell :: Maybe Cell -> Cell
-maybeCellToCell(Just p) = p
-maybeCellToCell Nothing = Cell{xx = 0, yy = 0, insects = []} -- просто пустая клетка
-
--- | Переводит Maybe Piece в [Piece]
-maybePieceToListPiece :: Maybe Piece -> [Piece]
-maybePieceToListPiece(Just p) = [p]
-maybePieceToListPiece Nothing = []
-  
 -- | Удаление фишки из старой позиции (перед перемещением)
-deleteInsect :: Cell -> Board -> Board
-deleteInsect _ [] = []
-deleteInsect oldCell (x:xs) | oldCell == x = (Cell { xx = xx oldCell, yy = yy oldCell, insects = []}) : xs
-                            | otherwise = x : deleteInsect oldCell xs
+deleteInsect :: Coord -> Board -> Board
+deleteInsect (i, j) board
+  | pieces == [] = Map.delete (i, j) board
+  | otherwise = Map.adjust tail (i, j) board
+  where
+    pieces = fromMaybe [] $ Map.lookup (i, j) board    -- список фишек в клетке с нужными координатами
 
--- | Постановка фишки в новую позицию (после перемещения)
-putInsect :: Cell -> Board -> Board
-putInsect cell [] = [cell]
-putInsect cell (x:xs) | cell == x = (Cell { xx = xx cell, yy = yy cell, insects = insects cell}) : xs
-                      | otherwise = x : putInsect cell xs
+-- | Получить клетку под мышкой (в которую хотим поставить фишку).
+mouseToCell :: Point -> Board -> Maybe Coord
+mouseToCell (x, y) board
+  | isNothing l = Nothing
+  | otherwise = Just (i, j)
+  where
+    i = round (x / fromIntegral cellSizeX)
+    j = round (y / fromIntegral cellSizeY)
+    l = Map.lookup (i, j) board
+
+-- | Сделать ход, если возможно
+makeMove :: Maybe Coord -> Game -> Game
+makeMove Nothing game = game    -- если ткнули не в клетку поля
+makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable}
+  | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
+    { gamePlayer = switchPlayer player
+    , gameBoard = putInsect (snd movable) (i, j) board
+    , gameMovable = Nothing
+    , gameEnding = Nothing}
+  | otherwise = game    -- если выбранный ход невозможен
+makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
+
+-- | Поставить фишку
+putInsect :: Piece -> Coord -> Board -> Board
+putInsect piece = Map.adjust (piece:)
+
+-- | Список координат всех допустимых клеток для постановки фишки - НУЖНО НАПИСАТЬ!!!
+-- Пока что возвращает координаты всех клеток поля
+possibleMoves :: Movable -> Board -> [Coord]
+possibleMoves _ board = map fst $ Map.toList board
+
+  -- | Установить gameEnding в Game, если игра завершилась
+checkWinner :: Game -> Game
+checkWinner game = game{gameEnding = winner (gameBoard game)}
 
 -- | Сменить текущего игрока
 switchPlayer :: Player -> Player
 switchPlayer Beige = Black
 switchPlayer Black = Beige
 
--- | Получить координаты клетки под мышкой.
-mouseToCell :: Point -> (Int, Int)
-mouseToCell (x, y) = (i, j)
-  where
-    i = round (x / fromIntegral cellSizeX)
-    j = round (y / fromIntegral cellSizeY)
+-- | Обновление игры.
+updateGame :: Float -> Game -> Game
+updateGame _ = id
 
-
-winner :: Board -> Maybe GameEnding
+-- | Определение победителя - НУЖНО НАПИСАТЬ!!!
+winner :: Board -> Maybe Ending
 winner _ = Nothing -- Nothing - никто пока не выйграл => добвить проверку на условия победы и ничьей
+
 
 -- =========================================
 -- Константы, параметры игры
 -- =========================================
+
 
 -- | Количество фишек у каждого игрока
 numberOfPieces :: Int
