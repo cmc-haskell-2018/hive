@@ -301,13 +301,13 @@ hopper_cells :: Coord -> [Coord] -> [Coord]
 hopper_cells _ [] = []
 hopper_cells (x,y) l = filter (\(a,b) -> 
   -- выбираются  клетки для вертикальных прыжков
-     mymember (a,b) (zip [x,x ..] list_ver1 ) 
-  || mymember (a,b) (zip [x,x ..] list_ver2 ) 
+     elem (a,b) (zip [x,x ..] list_ver1 ) 
+  || elem (a,b) (zip [x,x ..] list_ver2 ) 
   -- далее выбираются ячекйки для диагональных прыжков кузнечика 
-  || mymember (a,b) (zip list_x1 list_y1) 
-  || mymember (a,b) (zip list_x1 list_y2)
-  || mymember (a,b) (zip list_x2 list_y1) 
-  || mymember (a,b) (zip list_x2 list_y2) 
+  || elem (a,b) (zip list_x1 list_y1) 
+  || elem (a,b) (zip list_x1 list_y2)
+  || elem (a,b) (zip list_x2 list_y1) 
+  || elem (a,b) (zip list_x2 list_y2) 
     ) l
  where
   list_ver1 = [y+4, y+6 .. maximum (map snd $ l)] --список координат y через 2 позиции y > 0
@@ -318,10 +318,6 @@ hopper_cells (x,y) l = filter (\(a,b) ->
   list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
 
 -- отвечает на вопрос есть ли данная координата в списке 
-mymember :: Coord -> [Coord] ->Bool
-mymember coord [el] = coord == el
-mymember _ [] = False
-mymember coord (x:xs) =  (coord == x) || mymember coord xs  
 
 
 
