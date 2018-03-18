@@ -276,8 +276,54 @@ putInsect piece = Map.adjust (piece:)
 
 -- | Список координат всех допустимых клеток для постановки фишки - НУЖНО НАПИСАТЬ!!!
 -- Пока что возвращает координаты всех клеток поля
-possibleMoves :: Movable -> Board -> [Coord]
-possibleMoves _ board = map fst $ Map.toList board
+-- possibleMoves _ board = map fst $ Map.toList board
+possibleMoves ::Movable-> Board -> [Coord]
+possibleMoves ( (x,y), (_,ins,_)) board 
+  |ins == Queen  = queen_beetle_cells (x,y) (map fst $ Map.toList board) 
+  |ins == Beetle = queen_beetle_cells (x,y) (map fst $ Map.toList board)
+  |ins == Hopper = hopper_cells(x,y)        (map fst $ Map.toList board)
+  |otherwise =  map fst $ Map.toList board
+queen_beetle_cells :: Coord -> [Coord] -> [Coord]
+queen_beetle_cells _ [] = []
+queen_beetle_cells (x,y) l = filter (\(a,b) -> (a,b) == (x-1, y+1) 
+  ||  (a,b) == (x+1,y+1)
+  ||  (a,b) == (x,y+2)
+  ||  (a,b) == (x,y-2)
+  ||  (a,b) == (x-1,y-1)
+  ||  (a,b) == (x+1,y-1)
+  ) l
+-- Кузнечик не передвигается общепринятым способом. Он
+-- перепрыгивает с одного места на другое незанятое место
+-- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
+-- через 1 фишку.
+
+hopper_cells :: Coord -> [Coord] -> [Coord]
+hopper_cells _ [] = []
+hopper_cells (x,y) l = filter (\(a,b) -> 
+  -- выбираются  клетки для вертикальных прыжков
+     mymember (a,b) (zip [x,x ..] list_ver1 ) 
+  || mymember (a,b) (zip [x,x ..] list_ver2 ) 
+  -- далее выбираются ячекйки для диагональных прыжков кузнечика 
+  || mymember (a,b) (zip list_x1 list_y1) 
+  || mymember (a,b) (zip list_x1 list_y2)
+  || mymember (a,b) (zip list_x2 list_y1) 
+  || mymember (a,b) (zip list_x2 list_y2) 
+    ) l
+ where
+  list_ver1 = [y+4, y+6 .. maximum (map snd $ l)] --список координат y через 2 позиции y > 0
+  list_ver2 = [y-4, y-6 .. minimum (map snd $ l)] --списко координат y через 2 позиции y < 0
+  list_x1 = [x+2,x+3 .. minimum (map fst $ l)] --список координат х > 0 
+  list_x2 = [x-2,x-3 .. maximum (map fst $ l)] --список координат x < 0
+  list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
+  list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
+
+-- отвечает на вопрос есть ли данная координата в списке 
+mymember :: Coord -> [Coord] ->Bool
+mymember coord [el] = coord == el
+mymember _ [] = False
+mymember coord (x:xs) =  (coord == x) || mymember coord xs  
+
+
 
   -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
