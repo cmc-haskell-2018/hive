@@ -69,18 +69,20 @@ initGame = gameWithImages <$> loadImages
   -- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
-  { gameBoard  = Map.union (createCells (-11) (-11)) (createPieces images)    -- игровое поле - пусто
+  { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images)    -- игровое поле - пусто
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
   }
+  where
+    n = numberOfPieces
   
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
-  | x > n = Map.empty
-  | x + y >= 2 * n = Map.insert (x, y) [] (createCells (x + 1) (x + 1 - 2 * n))
-  | y - x >= 2 * n = Map.insert (x, y) [] (createCells (x + 1) (- 2 * n - x - 1))
+  | x > n+1 = Map.empty
+  | x + y >= 2 * (n+1) = Map.insert (x, y) [] $ createCells (x + 1) ((x+1) - 2 * (n+1))
+  | y - x >= 2 * (n+1) = Map.insert (x, y) [] $ createCells (x + 1) (-2 * (n+1) - (x+1))
   | otherwise = Map.insert (x, y) [] (createCells x (y + 2))
   where
     n = numberOfPieces
@@ -112,7 +114,7 @@ createPieces pic = Map.fromList
   , ((x, 8), [(Black, Ant, t 9)])
   , ((x, 10), [(Black, Ant, t 9)])]
   where
-    x = cellDistance + numberOfPieces
+    x = cellDistance + numberOfPieces + 1
     t = takePic pic
 
     -- Взять картинку из списка по номеру (кажется, такой подход абсолютно отвратителен, но я не уверена)
@@ -308,11 +310,11 @@ numberOfPieces = 11
 
 -- | Ширина игрового поля в клетках.
 boardWidth :: Int
-boardWidth  = 2 * (numberOfPieces + cellDistance) + 2
+boardWidth  = 2 * (numberOfPieces + 1 + cellDistance) + 2
 
 -- | Высота игрового поля в клетках.
 boardHeight :: Int
-boardHeight = 4 * numberOfPieces + 3
+boardHeight = 4 * (numberOfPieces + 1) + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
