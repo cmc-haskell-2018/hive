@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wall #-}
 module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
@@ -216,11 +217,13 @@ handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+  | otherwise = checkWinner $ shiftGame $ 
+        makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+  | otherwise = checkWinner $ shiftGame $ 
+        makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame _ game = game
 
 -- | Взять фишку с координатами под мышкой, если возможно
@@ -297,6 +300,73 @@ updateGame _ = id
 -- | Определение победителя - НУЖНО НАПИСАТЬ!!!
 winner :: Board -> Maybe Ending
 winner _ = Nothing -- Nothing - никто пока не выйграл => добвить проверку на условия победы и ничьей
+
+-- | Это просто для вызова shiftBoard,
+-- потому что делать shiftBoard еще больше я замучаюсь
+shiftGame  :: Game -> Game
+shiftGame game@Game{gameBoard = board} = game{gameBoard = shiftBoard board}
+
+-- | Передвинуть массив фишек, если он касается края поля
+-- если поставить фишки на противоположные края, то будет очень плохо
+-- но предполагается, что у нас будет possibleMoves, так что все нормально
+shiftBoard :: Board -> Board
+shiftBoard board    -- закройте глазки и не смотрите на этот ужас
+  | Map.filterWithKey (\(x, _) a -> x == -(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\y -> ((-(n+1), y), [])) [-(n+1),-(n-1)..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, -2*(n+1)-x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= 2*(n+2) && x /= n+2 || isSide x) $
+                  shiftCoord (1, 1) board
+  | Map.filterWithKey (\(x, y) a -> x >= -(n+1) && y-x == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\y -> ((-(n+1), y), [])) [-(n+1),-(n-1)..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, 2*(n+1)+x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x-y /= 2*(n+2) && x /= n+2 || isSide x) $
+                  shiftCoord (1, -1) board
+  | Map.filterWithKey (\(x, y) a -> x <= n+1 && x+y == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, 2*(n+1)-x), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, 2*(n+1)+x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= -2*(n+2) && x-y /= 2*(n+2) || isSide x) $
+                  shiftCoord (0, -2) board
+  | Map.filterWithKey (\(x, _) a -> x == n+1 && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, 2*(n+1)-x), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\y -> ((n+1, y), [])) [n+1,n-1.. -(n+1)]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= -2*(n+2) && x /= -(n+2) || isSide x) $
+                  shiftCoord (-1, -1) board
+  | Map.filterWithKey (\(x, y) a -> x <= n+1 && x-y == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, x-2*(n+1)), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\y -> ((n+1, y), [])) [n+1,n-1.. -(n+1)]) $
+                Map.filterWithKey (\(x, y) _ -> y-x /= 2*(n+2) && x /= -(n+2) || isSide x) $
+                  shiftCoord (-1, 1) board
+  | Map.filterWithKey (\(x, y) a -> x >= -(n+1) && x+y == -2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, x-2*(n+1)), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, -2*(n+1)-x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> y-x /= 2*(n+2) && x+y /= 2*(n+2) || isSide x) $
+                  shiftCoord (0, 2) board
+  | otherwise = board
+    where
+      n = numberOfPieces
+      isSide x = x > n+2 || x < -(n+2)
+      shiftCoord :: (Int, Int) -> Board -> Board    -- сдвигает поле на (i, j)
+      shiftCoord (i, j) = Map.mapKeys (\(x, y) -> if (x>= -(n+1)) && (x<= n+1)
+                                                    then(x+i, y+j)
+                                                    else (x, y))
 
 
 -- =========================================
