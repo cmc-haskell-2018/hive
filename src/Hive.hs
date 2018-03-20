@@ -227,9 +227,9 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, insects_in_ga
   | pieces == [] = game
   | pieceColor top /= player = game
   -- possibleMoves movable board False  == [] = game -- кажется это проверка здесь не нужна, 
-  -- | find_queen (change_tuples list_piece) player == 0   -- это для проверки поставили ли игроки за первые 4 хода королеву
-  --   &&  playerMoves (change_tuples list_piece) player == 3 
-  --   &&  find_queen (change_tuples [top]) player == 0  = game -- игрок походил 3 раза и не расположил еще свою пчелу  при этом тыкает не на пчелу
+  | find_queen (change_tuples list_piece) player == 0   -- это для проверки поставили ли игроки за первые 4 хода королеву
+     &&  playerMoves (change_tuples list_piece) player == 3 
+     &&  find_queen (change_tuples [top]) player == 0  = game -- игрок походил 3 раза и не расположил еще свою пчелу  при этом тыкает не на пчелу
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
@@ -284,8 +284,7 @@ mouseToCell (x, y) board
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
 makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, insects_in_game = l}
-   |  elem (i, j) (possibleMoves movable board (elem(i,j) coordsOnStart)) = Game    -- если выбранный ход возможен
-                                                                                    -- ПРОБЛЕМА почему то проверка (elem(i,j) coordsOnStart) не срабатывает
+   |  elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) (i,j) board
      , gameMovable = Nothing
@@ -303,14 +302,15 @@ putInsect piece = Map.adjust (piece:)
 -- Пока что возвращает координаты всех клеток поля
 -- possibleMoves _ board = map fst $ Map.toList board
 
-possibleMoves ::Movable-> Board -> Bool ->  [Coord]
-possibleMoves ( (x,y), (_,ins,_)) board flag  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
+possibleMoves ::Movable-> Board ->  [Coord]
+possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                               -- в случае старта должно возвратить список всех клеток поля
   | flag == False && ins == Queen  = queen_beetle_cells (x,y) (map fst $ Map.toList board) 
   | flag == False && ins == Beetle = queen_beetle_cells (x,y) (map fst $ Map.toList board)
   | flag == False && ins == Hopper = hopper_cells(x,y)        (map fst $ Map.toList board)
   | otherwise =  map fst $ Map.toList board
-
+ where
+   flag = elem (x,y) coordsOnStart
 
 queen_beetle_cells :: Coord -> [Coord] -> [Coord]
 queen_beetle_cells _ [] = []
@@ -341,8 +341,8 @@ hopper_cells (x,y) l = filter (\(a,b) ->
  where
   list_ver1 = [y+4, y+6 .. maximum (map snd $ l)] --список координат y через 2 позиции y > 0
   list_ver2 = [y-4, y-6 .. minimum (map snd $ l)] --списко координат y через 2 позиции y < 0
-  list_x1 = [x+2,x+3 .. minimum (map fst $ l)] --список координат х > 0 
-  list_x2 = [x-2,x-3 .. maximum (map fst $ l)] --список координат x < 0
+  list_x1 = [x+2,x+3 .. maximum (map fst $ l)] --список координат х > 0 
+  list_x2 = [x-2,x-3 .. minimum (map fst $ l)] --список координат x < 0
   list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
   list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
 
@@ -418,3 +418,4 @@ coordsOnStart = [ (-15, -10),(-15, -8), (-15, -6),(-15, -4),(-15, -2),
                   (-15, 0),  (-15, 2),  (-15, 4), (-15, 6), (-15, 8), (-15, 10),
                   (15, 10),  (15, 8),   (15, 6),  (15, 4),  (15, 2), 
                   (15, 0),   (15, -2),  (15, -4), (15, -6), (15, -8), (15, -10)] 
+
