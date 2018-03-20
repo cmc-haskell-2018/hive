@@ -301,7 +301,7 @@ putInsect piece = Map.adjust (piece:)
 possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves _ board = map fst $ Map.toList board
 
-  -- | Установить gameEnding в Game, если игра завершилась
+-- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
 checkWinner game = game{gameEnding = winner (gameBoard game)}
 
