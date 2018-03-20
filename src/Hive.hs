@@ -48,6 +48,7 @@ data Player = Beige | Black
 
 -- | Окончание игры
 data Ending = Win Player | Tie
+  deriving (Eq)
 
 -- | Состояние игры
 data Game = Game
@@ -165,9 +166,10 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 
 -- | Рисуем всё
 drawGame :: Game -> Picture
-drawGame Game{gameBoard = board} = pictures
+drawGame Game{gameBoard = board, gameEnding = maybeEnding} = pictures
   [ drawAllCells board
-  , drawAllInsects board]
+  , drawAllInsects board
+  , drawEnding maybeEnding]
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
@@ -206,6 +208,19 @@ drawInsect ((x, y), ((_, _, pic):_)) =
     kx = fromIntegral (cellSizeX * x)
     ky = fromIntegral (cellSizeY * y)
 
+-- | Рисуем конец игры
+drawEnding :: Maybe Ending -> Picture
+drawEnding Nothing = blank
+drawEnding (Just ending) = placeText $ text $ endingText ending
+  where
+    placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
+        scale 0.4 0.4
+
+-- | Надпись об окончании игры
+endingText :: Ending -> String
+endingText Tie = "It's a Tie:)"
+endingText (Win Black) = "Black Team Won"
+endingText (Win Beige) = "Beige Team Won"
 
 -- =========================================
 -- Обработка событий
@@ -299,17 +314,40 @@ switchPlayer Black = Beige
 updateGame :: Float -> Game -> Game
 updateGame _ = id
 
--- | Определение победителя - НУЖНО НАПИСАТЬ!!!
+-- | Определение победителя
 winner :: Board -> Maybe Ending
-winner _ = Nothing -- Nothing - никто пока не выиграл => добавить проверку на условия победы и ничьей
 winner board
-  | 
+  | blackLose && beigeLose = Just Tie
+  | blackLose = Just (Win Beige)
+  | beigeLose = Just (Win Black)
+  | otherwise = Nothing
   where
-    blackCoord = fst.head.Map.toList.Map.filter (filter (\(player, insect, _) -> player == Black && insect == Queen)/=[]) board
-    beigeCoord = fst.head.Map.toList.Map.filter (filter (\(player, insect, _) -> player == Beige && insect == Queen)/=[]) board
-    isSide (x, _) = x > n+2 || x < -(n+2)
-    
-    
+    blackLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Black)     -- черная пчела окружена
+    beigeLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Beige)    -- бежевая пчела окружена
+    beeCoord :: Player -> Maybe Coord       -- координаты пчелы данного цвета
+    beeCoord player = takeCoord $ Map.filter hasBee board
+      where
+        hasBee :: Cell -> Bool      -- есть ли в клетке пчела данного цвета?
+        hasBee pieces = filter (\(p, insect, _) -> p == player && insect == Queen) pieces /= []
+
+-- | Берет координаты первого элемента в контейнере (вспомогательная функция)
+takeCoord :: Board -> Maybe Coord
+takeCoord filtered
+  | Map.null filtered = Nothing
+  | otherwise = if isSide coord then Nothing
+                                        else (Just coord)
+    where
+      isSide (x, _) = x > n+1 || x < -(n+1)
+      coord = fst $ Map.elemAt 0 filtered
+      n = numberOfPieces
+
+-- | Проверяет, заперта ли пчела
+beeIsLocked :: Board -> Coord -> Bool
+beeIsLocked board (x, y) = isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2)
+    where
+      isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
 
 -- | Это просто для вызова shiftBoard,
 -- потому что делать shiftBoard еще больше я замучаюсь
@@ -402,7 +440,7 @@ cellSizeX = 35
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
-cellSizeY = round ((fromIntegral cellSizeX) / (sqrt 3))
+cellSizeY = round ((fromIntegral cellSizeX) / ( sqrt 3) :: Double)
 
 -- | Ширина экрана в пикселях.
 screenWidth :: Int
