@@ -16,7 +16,6 @@ runHive = do
     bgColor = white   -- цвет фона
     fps     = 10      -- кол-во кадров в секунду
 
-
 -- =========================================
 -- Модель игры
 -- =========================================
@@ -47,16 +46,15 @@ data Player = Beige | Black
 
 -- | Окончание игры
 data Ending = Win Player | Tie
-
+  
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
   , gamePlayer :: Player    -- Чей ход?
   , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
+  , insects_in_game :: [Piece]   -- для проверки начала игры(за первые 4 хода поставить королеву)
   }
-
-
 -- =========================================
 -- Инициализация
 -- =========================================
@@ -73,6 +71,7 @@ gameWithImages images = Game
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
+  , insects_in_game = []    -- игра еще не началась, насекомых в игре нет
   }
   
 -- | Создаем список из клеток игрового поля
@@ -221,17 +220,23 @@ handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
   | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame _ game = game
 
+--------------------------------------------------------------------------------------------------------------------------------------
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
-takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
+takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, insects_in_game = list_piece}
   | pieces == [] = game
   | pieceColor top /= player = game
-  | possibleMoves movable board == [] = game
+  -- possibleMoves movable board False  == [] = game -- кажется это проверка здесь не нужна, 
+  -- | find_queen (change_tuples list_piece) player == 0   -- это для проверки поставили ли игроки за первые 4 хода королеву
+  --   &&  playerMoves (change_tuples list_piece) player == 3 
+  --   &&  find_queen (change_tuples [top]) player == 0  = game -- игрок походил 3 раза и не расположил еще свою пчелу  при этом тыкает не на пчелу
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
     , gameMovable = Just movable
-    , gameEnding = Nothing}
+    , gameEnding = Nothing
+    , insects_in_game = top : list_piece
+    }
   where
     i = round (x / fromIntegral cellSizeX)
     j = round (y / fromIntegral cellSizeY)
@@ -239,7 +244,24 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
     top = head pieces    -- самая верхняя фишка в списке
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
+--------------------------------------------------------------------------------------------------------------------------------------
+-- |функции для проверки  поставили ли игроки  за первые 4 хода пчелу
 
+change_tuples :: [Piece] -> [(Player,Insect)]
+change_tuples [] = []
+change_tuples ((pl,ins,_) :xs) = (pl,ins):change_tuples xs
+ 
+-- | возвращает количество ходов нужного игрока
+playerMoves :: [(Player, Insect)]-> Player -> Int 
+playerMoves [] _ = 0
+playerMoves xs player_ = length (filter (\p -> fst p == player_) xs )
+
+-- | принимает на вход  игрока и  список фишек в игре, возвращает 1 если пчела игрока поставлена, 0 иначе  
+find_queen :: [(Player,Insect)] -> Player  -> Int
+find_queen [] _   = 0 -- не нашел
+find_queen xs pl = length (filter (\p -> snd p == Queen && fst p== pl) xs )
+
+--------------------------------------------------------------------------------------------------------------------------------------
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
 deleteInsect (i, j) board
@@ -261,15 +283,18 @@ mouseToCell (x, y) board
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
-makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable}
-  | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
-    { gamePlayer = switchPlayer player
-    , gameBoard = putInsect (snd movable) (i, j) board
-    , gameMovable = Nothing
-    , gameEnding = Nothing}
+makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, insects_in_game = l}
+   |  elem (i, j) (possibleMoves movable board (elem(i,j) coordsOnStart)) = Game    -- если выбранный ход возможен
+                                                                                    -- ПРОБЛЕМА почему то проверка (elem(i,j) coordsOnStart) не срабатывает
+     { gamePlayer = switchPlayer player
+     , gameBoard = putInsect (snd movable) (i,j) board
+     , gameMovable = Nothing
+     , gameEnding = Nothing
+     , insects_in_game =  snd movable : l}
   | otherwise = game    -- если выбранный ход невозможен
+  where
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
-
+  
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
@@ -277,12 +302,16 @@ putInsect piece = Map.adjust (piece:)
 -- | Список координат всех допустимых клеток для постановки фишки - НУЖНО НАПИСАТЬ!!!
 -- Пока что возвращает координаты всех клеток поля
 -- possibleMoves _ board = map fst $ Map.toList board
-possibleMoves ::Movable-> Board -> [Coord]
-possibleMoves ( (x,y), (_,ins,_)) board 
-  |ins == Queen  = queen_beetle_cells (x,y) (map fst $ Map.toList board) 
-  |ins == Beetle = queen_beetle_cells (x,y) (map fst $ Map.toList board)
-  |ins == Hopper = hopper_cells(x,y)        (map fst $ Map.toList board)
-  |otherwise =  map fst $ Map.toList board
+
+possibleMoves ::Movable-> Board -> Bool ->  [Coord]
+possibleMoves ( (x,y), (_,ins,_)) board flag  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
+                                              -- в случае старта должно возвратить список всех клеток поля
+  | flag == False && ins == Queen  = queen_beetle_cells (x,y) (map fst $ Map.toList board) 
+  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (map fst $ Map.toList board)
+  | flag == False && ins == Hopper = hopper_cells(x,y)        (map fst $ Map.toList board)
+  | otherwise =  map fst $ Map.toList board
+
+
 queen_beetle_cells :: Coord -> [Coord] -> [Coord]
 queen_beetle_cells _ [] = []
 queen_beetle_cells (x,y) l = filter (\(a,b) -> (a,b) == (x-1, y+1) 
@@ -316,9 +345,6 @@ hopper_cells (x,y) l = filter (\(a,b) ->
   list_x2 = [x-2,x-3 .. maximum (map fst $ l)] --список координат x < 0
   list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
   list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
-
--- отвечает на вопрос есть ли данная координата в списке 
-
 
 
   -- | Установить gameEnding в Game, если игра завершилась
@@ -385,3 +411,10 @@ allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen, Spider, Beetle, Hopper, Ant])
+
+-- | Список координат, где стоят фишки в начале игры
+coordsOnStart :: [Coord]
+coordsOnStart = [ (-15, -10),(-15, -8), (-15, -6),(-15, -4),(-15, -2), 
+                  (-15, 0),  (-15, 2),  (-15, 4), (-15, 6), (-15, 8), (-15, 10),
+                  (15, 10),  (15, 8),   (15, 6),  (15, 4),  (15, 2), 
+                  (15, 0),   (15, -2),  (15, -4), (15, -6), (15, -8), (15, -10)] 
