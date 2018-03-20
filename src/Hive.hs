@@ -53,7 +53,6 @@ data Game = Game
   , gamePlayer :: Player    -- Чей ход?
   , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
-  , insects_in_game :: [Piece]   -- для проверки начала игры(за первые 4 хода поставить королеву)
   }
 -- =========================================
 -- Инициализация
@@ -71,7 +70,6 @@ gameWithImages images = Game
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
-  , insects_in_game = []    -- игра еще не началась, насекомых в игре нет
   }
   
 -- | Создаем список из клеток игрового поля
@@ -223,19 +221,15 @@ handleGame _ game = game
 --------------------------------------------------------------------------------------------------------------------------------------
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
-takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, insects_in_game = list_piece}
+takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
   | pieces == [] = game
   | pieceColor top /= player = game
   -- possibleMoves movable board False  == [] = game -- кажется это проверка здесь не нужна, 
-  | find_queen (change_tuples list_piece) player == 0   -- это для проверки поставили ли игроки за первые 4 хода королеву
-     &&  playerMoves (change_tuples list_piece) player == 3 
-     &&  find_queen (change_tuples [top]) player == 0  = game -- игрок походил 3 раза и не расположил еще свою пчелу  при этом тыкает не на пчелу
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
     , gameMovable = Just movable
     , gameEnding = Nothing
-    , insects_in_game = top : list_piece
     }
   where
     i = round (x / fromIntegral cellSizeX)
@@ -244,24 +238,7 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, insects_in_ga
     top = head pieces    -- самая верхняя фишка в списке
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
---------------------------------------------------------------------------------------------------------------------------------------
--- |функции для проверки  поставили ли игроки  за первые 4 хода пчелу
 
-change_tuples :: [Piece] -> [(Player,Insect)]
-change_tuples [] = []
-change_tuples ((pl,ins,_) :xs) = (pl,ins):change_tuples xs
- 
--- | возвращает количество ходов нужного игрока
-playerMoves :: [(Player, Insect)]-> Player -> Int 
-playerMoves [] _ = 0
-playerMoves xs player_ = length (filter (\p -> fst p == player_) xs )
-
--- | принимает на вход  игрока и  список фишек в игре, возвращает 1 если пчела игрока поставлена, 0 иначе  
-find_queen :: [(Player,Insect)] -> Player  -> Int
-find_queen [] _   = 0 -- не нашел
-find_queen xs pl = length (filter (\p -> snd p == Queen && fst p== pl) xs )
-
---------------------------------------------------------------------------------------------------------------------------------------
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
 deleteInsect (i, j) board
@@ -283,14 +260,14 @@ mouseToCell (x, y) board
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
-makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, insects_in_game = l}
-   |  elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
+makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable}
+   | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) (i,j) board
      , gameMovable = Nothing
      , gameEnding = Nothing
-     , insects_in_game =  snd movable : l}
-  | otherwise = game    -- если выбранный ход невозможен
+   }
+   | otherwise = game    -- если выбранный ход невозможен
   where
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
   
