@@ -67,7 +67,7 @@ data Game = Game
 initGame :: IO Game
 initGame = gameWithImages <$> loadImages
 
-  -- | Инициализировать экран с заданными изображениями
+-- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
   { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images)    -- игровое поле - пусто
@@ -245,6 +245,8 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
 
+-- | Нужно ли обязательно взять пчелу?
+
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
 deleteInsect (i, j) board
@@ -299,7 +301,15 @@ updateGame _ = id
 
 -- | Определение победителя - НУЖНО НАПИСАТЬ!!!
 winner :: Board -> Maybe Ending
-winner _ = Nothing -- Nothing - никто пока не выйграл => добвить проверку на условия победы и ничьей
+winner _ = Nothing -- Nothing - никто пока не выиграл => добавить проверку на условия победы и ничьей
+winner board
+  | 
+  where
+    blackCoord = fst.head.Map.toList.Map.filter (filter (\(player, insect, _) -> player == Black && insect == Queen)/=[]) board
+    beigeCoord = fst.head.Map.toList.Map.filter (filter (\(player, insect, _) -> player == Beige && insect == Queen)/=[]) board
+    isSide (x, _) = x > n+2 || x < -(n+2)
+    
+    
 
 -- | Это просто для вызова shiftBoard,
 -- потому что делать shiftBoard еще больше я замучаюсь
