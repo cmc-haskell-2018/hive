@@ -288,7 +288,8 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | flag == False && ins == Hopper = hopper_cells(x,y)        (delStartCells (map fst $ Map.toList only_free_cells)) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
-  flag = elem (x,y) coordsOnStart
+  flag = x < -(n+1) || x > n+1
+  n = numberOfPieces
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
@@ -327,7 +328,8 @@ poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
-delStartCells l = filter (\(a,b) -> elem (a,b) coordsOnStart == False ) l
+delStartCells l = filter (\(x, _) -> x >= -(n+1) && x <= n+1 ) l
+  where n = numberOfPieces
 
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
@@ -431,11 +433,3 @@ allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen, Spider, Beetle, Hopper, Ant])
-
--- | Список координат, где стоят фишки в начале игры
-coordsOnStart :: [Coord]
-coordsOnStart = [ (-15, -10),(-15, -8), (-15, -6),(-15, -4),(-15, -2), 
-                  (-15, 0),  (-15, 2),  (-15, 4), (-15, 6), (-15, 8), (-15, 10),
-                  (15, 10),  (15, 8),   (15, 6),  (15, 4),  (15, 2), 
-                  (15, 0),   (15, -2),  (15, -4), (15, -6), (15, -8), (15, -10)] 
-
