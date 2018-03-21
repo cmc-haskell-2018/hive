@@ -15,8 +15,7 @@ runHive = do
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
-    fps     = 0      -- кол-во кадров в секунду
-
+    fps     = 10      -- кол-во кадров в секунду
 
 -- =========================================
 -- Модель игры
@@ -49,7 +48,7 @@ data Player = Beige | Black
 -- | Окончание игры
 data Ending = Win Player | Tie
   deriving (Eq)
-
+  
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
@@ -251,7 +250,8 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
     , gameMovable = Just movable
-    , gameEnding = Nothing}
+    , gameEnding = Nothing
+    }
   where
     i = round (x / fromIntegral cellSizeX)
     j = round (y / fromIntegral cellSizeY)
@@ -260,7 +260,6 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
 
--- | Нужно ли обязательно взять пчелу?
 
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
@@ -284,22 +283,107 @@ mouseToCell (x, y) board
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
 makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable}
-  | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
-    { gamePlayer = switchPlayer player
-    , gameBoard = putInsect (snd movable) (i, j) board
-    , gameMovable = Nothing
-    , gameEnding = Nothing}
-  | otherwise = game    -- если выбранный ход невозможен
+   | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
+     { gamePlayer = switchPlayer player
+     , gameBoard = putInsect (snd movable) (i,j) board
+     , gameMovable = Nothing
+     , gameEnding = Nothing
+   }
+   | otherwise = game    -- если выбранный ход невозможен
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
 
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
 
--- | Список координат всех допустимых клеток для постановки фишки - НУЖНО НАПИСАТЬ!!!
--- Пока что возвращает координаты всех клеток поля
-possibleMoves :: Movable -> Board -> [Coord]
-possibleMoves _ board = map fst $ Map.toList board
+-- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
+possibleMoves ::Movable-> Board ->  [Coord]
+possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
+                                       -- в случае старта должно возвратить список всех клеток поля             
+  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
+  | flag == False && ins == Queen  = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
+  | flag == False && ins == Hopper = hopper_cells(x,y)        (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
+ where
+  flag = x < -(n+1) || x > n+1
+  n = numberOfPieces
+  only_free_cells = Map.filterWithKey (\_ val -> val == []) board
+  is_not_possible = poss_move board (x,y)  
+
+-- | Может ли двигаться данная фишка, true - не может двигаться
+poss_move :: Board -> Coord -> Bool
+poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) ==False)
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2)== False && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) == False &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) )
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1)== False && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1)== False &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) == False && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+ where
+  isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+
+-- | удаляет из списка координат стартовые клетки
+delStartCells :: [Coord] -> [Coord]
+delStartCells [] = []
+delStartCells l = filter (\(x, _) -> x >= -(n+1) && x <= n+1 ) l
+  where n = numberOfPieces
+
+-- | координаты для королевы и жука
+-- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
+-- |ход. Но в отличии от всех остальных фишек, он может перемещать поверх других фишек.
+queen_beetle_cells :: Coord -> [Coord] -> [Coord]
+queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1) 
+  ||  (a,b) == (x+1,y+1)
+  ||  (a,b) == (x,y+2)
+  ||  (a,b) == (x,y-2)
+  ||  (a,b) == (x-1,y-1)
+  ||  (a,b) == (x+1,y-1)
+  )
+-- Кузнечик не передвигается общепринятым способом. Он
+-- перепрыгивает с одного места на другое незанятое место
+-- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
+-- через 1 фишку.
+
+hopper_cells :: Coord -> [Coord] -> [Coord]
+hopper_cells _ [] = []
+hopper_cells (x,y) l = filter (\(a,b) -> 
+  -- выбираются  клетки для вертикальных прыжков
+     elem (a,b) (zip [x,x ..] list_ver1 ) 
+  || elem (a,b) (zip [x,x ..] list_ver2 ) 
+  -- далее выбираются ячекйки для диагональных прыжков кузнечика 
+  || elem (a,b) (zip list_x1 list_y1) 
+  || elem (a,b) (zip list_x1 list_y2)
+  || elem (a,b) (zip list_x2 list_y1) 
+  || elem (a,b) (zip list_x2 list_y2) 
+    ) l
+ where
+  list_ver1 = [y+4, y+6 .. maximum (map snd $ l)] --список координат y через 2 позиции y > 0
+  list_ver2 = [y-4, y-6 .. minimum (map snd $ l)] --списко координат y через 2 позиции y < 0
+  list_x1 = [x+2,x+3 .. maximum (map fst $ l)] --список координат х > 0 
+  list_x2 = [x-2,x-3 .. minimum (map fst $ l)] --список координат x < 0
+  list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
+  list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
 
 -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
