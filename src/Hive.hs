@@ -281,14 +281,57 @@ putInsect piece = Map.adjust (piece:)
 
 possibleMoves ::Movable-> Board ->  [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
-                                              -- в случае старта должно возвратить список всех клеток поля
-  | flag == False && ins == Queen  = queen_beetle_cells (x,y) (map fst $ Map.toList board) 
-  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (map fst $ Map.toList board)
-  | flag == False && ins == Hopper = hopper_cells(x,y)        (map fst $ Map.toList board)
-  | otherwise =  map fst $ Map.toList board
+                                       -- в случае старта должно возвратить список всех клеток поля             
+  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
+  | flag == False && ins == Queen  = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
+  | flag == False && ins == Hopper = hopper_cells(x,y)        (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
-   flag = elem (x,y) coordsOnStart
+  flag = elem (x,y) coordsOnStart
+  only_free_cells = Map.filterWithKey (\_ val -> val == []) board
+  is_not_possible = poss_move board (x,y)  
 
+-- | Может ли двигаться данная фишка, true - не может двигаться
+poss_move :: Board -> Coord -> Bool
+poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) ==False)
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2)== False && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) == False &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) )
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1)== False && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1)== False &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+                        
+                        || (isNotEmpty (x-1, y+1) == False && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+
+                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+ where
+  isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+
+-- | удаляет из списка координат стартовые клетки
+delStartCells :: [Coord] -> [Coord]
+delStartCells [] = []
+delStartCells l = filter (\(a,b) -> elem (a,b) coordsOnStart == False ) l
+
+-- | координаты для королевы и жука
+-- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
+-- |ход. Но в отличии от всех остальных фишек, он может перемещать поверх других фишек.
 queen_beetle_cells :: Coord -> [Coord] -> [Coord]
 queen_beetle_cells _ [] = []
 queen_beetle_cells (x,y) l = filter (\(a,b) -> (a,b) == (x-1, y+1) 
