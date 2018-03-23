@@ -292,7 +292,7 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
--- | Может ли двигаться данная фишка, true - не может двигаться
+-- | Может ли двигаться данная фишка, true - не может двигаться,генератор
 poss_move :: Board -> Coord -> Bool
 poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
                            isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
