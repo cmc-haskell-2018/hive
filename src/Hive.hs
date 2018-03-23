@@ -46,7 +46,9 @@ data Player = Beige | Black
 
 -- | Окончание игры
 data Ending = Win Player | Tie
-  
+
+data Step = First |Secind |Third | Fours | Other
+
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
@@ -58,7 +60,6 @@ data Game = Game
 -- Инициализация
 -- =========================================
 
-
 -- | Начальное состояние игры
 initGame :: IO Game
 initGame = gameWithImages <$> loadImages
@@ -66,11 +67,13 @@ initGame = gameWithImages <$> loadImages
   -- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
-  { gameBoard  = Map.union (createCells (-11) (-11)) (createPieces images)    -- игровое поле - пусто
+  { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images)    -- игровое поле - пусто
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
   }
+  where 
+    n = numberOfPieces
   
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
@@ -200,6 +203,19 @@ drawInsect ((x, y), ((_, _, pic):_)) =
     kx = fromIntegral (cellSizeX * x)
     ky = fromIntegral (cellSizeY * y)
 
+-- | Рисуем конец игры
+drawEnding :: Maybe Ending -> Picture
+drawEnding Nothing = blank
+drawEnding (Just ending) = placeText $ text $ endingText ending
+  where
+    placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
+        scale 0.4 0.4
+
+-- | Надпись об окончании игры
+endingText :: Ending -> String
+endingText Tie = "It's a Tie:)"
+endingText (Win Black) = "Black Team Won"
+endingText (Win Beige) = "Beige Team Won"
 
 -- =========================================
 -- Обработка событий
@@ -218,7 +234,7 @@ handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
   | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame _ game = game
 
---------------------------------------------------------------------------------------------------------------------------------------
+
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
@@ -327,7 +343,8 @@ poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
-delStartCells l = filter (\(a,b) -> elem (a,b) coordsOnStart == False ) l
+delStartCells l = filter (\(x,_) -> x >= -(n+1) && x <= n+1 ) l
+ where n = numberOfPieces
 
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
@@ -382,9 +399,107 @@ updateGame _ = id
 
 -- | Определение победителя - НУЖНО НАПИСАТЬ!!!
 winner :: Board -> Maybe Ending
-winner _ = Nothing -- Nothing - никто пока не выйграл => добвить проверку на условия победы и ничьей
+winner board
+  | blackLose && beigeLose = Just Tie
+  | blackLose = Just (Win Beige)
+  | beigeLose = Just (Win Black)
+  | otherwise = Nothing
+  where
+    blackLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Black)     -- черная пчела окружена
+    beigeLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Beige)    -- бежевая пчела окружена
+    beeCoord :: Player -> Maybe Coord       -- координаты пчелы данного цвета
+    beeCoord player = takeCoord $ Map.filter hasBee board
+      where
+        hasBee :: Cell -> Bool      -- есть ли в клетке пчела данного цвета?
+        hasBee pieces = filter (\(p, insect, _) -> p == player && insect == Queen) pieces /= []
+
+-- | Берет координаты первого элемента в контейнере (вспомогательная функция)
+takeCoord :: Board -> Maybe Coord
+takeCoord filtered
+  | Map.null filtered = Nothing
+  | otherwise = if isSide coord then Nothing
+                                        else (Just coord)
+    where
+      isSide (x, _) = x > n+1 || x < -(n+1)
+      coord = fst $ Map.elemAt 0 filtered
+      n = numberOfPieces
+
+-- | Проверяет, заперта ли пчела
+beeIsLocked :: Board -> Coord -> Bool
+beeIsLocked board (x, y) = isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
+                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
+                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2)
+    where
+      isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
 
 
+
+-- | Это просто для вызова shiftBoard,
+-- потому что делать shiftBoard еще больше я замучаюсь
+shiftGame  :: Game -> Game
+shiftGame game@Game{gameBoard = board} = game{gameBoard = shiftBoard board}
+
+-- | Передвинуть массив фишек, если он касается края поля
+-- если поставить фишки на противоположные края, то будет очень плохо
+-- но предполагается, что у нас будет possibleMoves, так что все нормально
+shiftBoard :: Board -> Board
+shiftBoard board    -- закройте глазки и не смотрите на этот ужас
+  | Map.filterWithKey (\(x, _) a -> x == -(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\y -> ((-(n+1), y), [])) [-(n+1),-(n-1)..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, -2*(n+1)-x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= 2*(n+2) && x /= n+2 || isSide x) $
+                  shiftCoord (1, 1) board
+  | Map.filterWithKey (\(x, y) a -> x >= -(n+1) && y-x == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\y -> ((-(n+1), y), [])) [-(n+1),-(n-1)..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, 2*(n+1)+x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x-y /= 2*(n+2) && x /= n+2 || isSide x) $
+                  shiftCoord (1, -1) board
+  | Map.filterWithKey (\(x, y) a -> x <= n+1 && x+y == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, 2*(n+1)-x), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, 2*(n+1)+x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= -2*(n+2) && x-y /= 2*(n+2) || isSide x) $
+                  shiftCoord (0, -2) board
+  | Map.filterWithKey (\(x, _) a -> x == n+1 && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, 2*(n+1)-x), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\y -> ((n+1, y), [])) [n+1,n-1.. -(n+1)]) $
+                Map.filterWithKey (\(x, y) _ -> x+y /= -2*(n+2) && x /= -(n+2) || isSide x) $
+                  shiftCoord (-1, -1) board
+  | Map.filterWithKey (\(x, y) a -> x <= n+1 && x-y == 2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, x-2*(n+1)), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\y -> ((n+1, y), [])) [n+1,n-1.. -(n+1)]) $
+                Map.filterWithKey (\(x, y) _ -> y-x /= 2*(n+2) && x /= -(n+2) || isSide x) $
+                  shiftCoord (-1, 1) board
+  | Map.filterWithKey (\(x, y) a -> x >= -(n+1) && x+y == -2*(n+1) && a/=[]) board /= Map.empty
+      = shiftBoard $
+        Map.union (Map.fromList $
+          map (\x -> ((x, x-2*(n+1)), [])) [0..n+1]) $
+            Map.union (Map.fromList $
+              map (\x -> ((x, -2*(n+1)-x), [])) [-(n+1)..0]) $
+                Map.filterWithKey (\(x, y) _ -> y-x /= 2*(n+2) && x+y /= 2*(n+2) || isSide x) $
+                  shiftCoord (0, 2) board
+  | otherwise = board
+    where
+      n = numberOfPieces
+      isSide x = x > n+2 || x < -(n+2)
+      shiftCoord :: (Int, Int) -> Board -> Board    -- сдвигает поле на (i, j)
+      shiftCoord (i, j) = Map.mapKeys (\(x, y) -> if (x>= -(n+1)) && (x<= n+1)
+                                                    then(x+i, y+j)
+                                                    else (x, y))
 -- =========================================
 -- Константы, параметры игры
 -- =========================================
@@ -438,4 +553,3 @@ coordsOnStart = [ (-15, -10),(-15, -8), (-15, -6),(-15, -4),(-15, -2),
                   (-15, 0),  (-15, 2),  (-15, 4), (-15, 6), (-15, 8), (-15, 10),
                   (15, 10),  (15, 8),   (15, 6),  (15, 4),  (15, 2), 
                   (15, 0),   (15, -2),  (15, -4), (15, -6), (15, -8), (15, -10)] 
-
