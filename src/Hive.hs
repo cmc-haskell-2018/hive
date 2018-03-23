@@ -308,37 +308,15 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
--- | Может ли двигаться данная фишка, true - не может двигаться,генератор
+-- | Может ли двигаться данная фишка, true - не может двигаться,false иначе
 poss_move :: Board -> Coord -> Bool
-poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) ==False)
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2)== False && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) == False &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) )
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1)== False && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1)== False &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) == False && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+poss_move board (x, y) =  if sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),
+                           isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1),
+                           isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] < 5 
+                                                      then False 
+                                                      else True 
  where
-  isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+  isNotEmpty (i, j) = if Map.lookup (i, j) board /= (Just []) then 1 else 0
 
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
