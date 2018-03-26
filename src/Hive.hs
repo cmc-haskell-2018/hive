@@ -301,10 +301,7 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
   | flag == False && ins == Queen  = (x,y) : queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
   | flag == False && ins == Beetle = (x,y) : queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
-  | flag == False && ins == Hopper = (x,y) : delStartCells (hopper_cells (x,y) board)
- 
- --delStartCells (hopper_cells (x,y) board)
- -- hopper_cells(x,y)        (delStartCells (map fst $ Map.toList board)) --уже отсюда в hopper kmghfdkznm 
+  | flag == False && ins == Hopper = (x,y) : delStartCells (hopper_cells (x,y) board) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
   flag = elem (x,y) coordsOnStart
@@ -315,12 +312,12 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
 poss_move :: Board -> Coord -> Bool
 poss_move board (x, y)    
   | sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1), isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] == 5   = True
-  | otherwise =  check1(x,y) || check2(x,y)
-                           
+  | otherwise =  check1(x,y) || check2(x,y)  -- проверка на расположение 3 фишек вокруг данной,всего 2 конфигурации                         
  where
   isNotEmpty (i, j) = if Map.lookup (i, j) board /= (Just []) then 1 else 0
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
+
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
@@ -339,7 +336,7 @@ queen_beetle_cells (x,y) l = filter (\(a,b) -> (a,b) == (x-1, y+1)
   ||  (a,b) == (x+1,y-1)
    ) l
 
--- на вход поле, и список ключей выдает поле с клетками   по данным ключам 
+-- на вход поле и список ключей выдает, поле с клетками   по данным ключам 
 keysToBoard :: [Coord] -> Board -> Board 
 keysToBoard [] _ = Map.empty
 keysToBoard (point: xs) board 
@@ -348,6 +345,7 @@ keysToBoard (point: xs) board
   | otherwise = keysToBoard xs board 
   where 
    listForPoint = maybePiecetoPiece (Map.lookup point board)
+
 
 maybePiecetoPiece :: Maybe Cell -> Cell
 maybePiecetoPiece (Just l) = l
@@ -379,19 +377,19 @@ hopper_cells (x,y) board
   dir5 = (for_hopper 5 (x,y) (maxmin l)) --направление 5
   dir6 = (for_hopper 6 (x,y) (maxmin l)) --направление 6 
 
-
+--вспомогательные функции
 delOneCoord :: Coord -> [Coord] -> [Coord]
 delOneCoord _ [] = []
 delOneCoord a (x:xs) 
   | a == x = xs
   | otherwise = x : delOneCoord a xs 
 
-
 maxmin:: [Coord] -> [Coord]
 maxmin [] = []
 maxmin l  = [  ( maximum (map fst $ l), maximum (map snd $ l) ) , ( minimum (map fst $ l),minimum (map snd $ l))]  
+ 
 
-
+ -- Возвращает свободные клетки до первой занятой
 takeWhileMap :: Board -> Bool->[Coord] 
 takeWhileMap board flag  
   | l == [] = []
@@ -402,6 +400,7 @@ takeWhileMap board flag
     head_l = head l 
     tail_map = Map.fromList (tail l)
 
+-- выдает по номеру список клеток в которым прыгает кузнечик, всего 6 направлений, я их отдельно обрабатываю, собственно из-за этого  и существует  for_hopper
 for_hopper :: Int-> Coord -> [Coord] -> [Coord]
 for_hopper _ _ [] = []
 for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)] 
