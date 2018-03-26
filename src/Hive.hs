@@ -19,8 +19,6 @@ runHive = do
 -- =========================================
 -- Модель игры
 -- =========================================
-
-
 -- | Насекомые
 data Insect = Queen | Spider | Beetle | Hopper | Ant
   deriving (Show, Eq, Ord)
@@ -402,8 +400,7 @@ takeWhileMap board flag
 
 -- выдает по номеру список клеток в которым прыгает кузнечик, всего 6 направлений, я их отдельно обрабатываю, собственно из-за этого  и существует  for_hopper
 for_hopper :: Int-> Coord -> [Coord] -> [Coord]
-for_hopper _ _ [] = []
-for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)] 
+for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  | n > 6 || n < 1 = [] 
  |n == 1 =  zip [x,x ..] [y+2, y+4 .. max_y] --список координат y через 2 позиции y > 0
  |n == 2 =  zip [x,x ..] [y-2, y-4 .. min_y] --списко координат y через 2 позиции y < 0
@@ -411,7 +408,9 @@ for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  |n == 4 =  zip [x+1,x+2 .. max_x] [y-1,y-2 .. min_y]
  |n == 5 =  zip [x-1,x-2 .. min_x] [y+1,y+2 .. max_y]
  |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
- | otherwise = []
+ |otherwise = []
+
+--for_hopper _ _ [] = []
 
   -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
