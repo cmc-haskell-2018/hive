@@ -149,7 +149,7 @@ loadPieceImage s = fmap (translate 0 0 . scale k k)
   (maybePicToPic <$> (loadJuicyPNG path))
   where
     path = "images/" ++ s ++ ".png"
-    k = 6 / 5 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
+    k = 5 / 4 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
 
     -- | Переводит Maybe Picture в Picture
     maybePicToPic :: Maybe Picture -> Picture
@@ -178,8 +178,8 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 drawGame :: Game -> Picture
 drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
             , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack} = pictures
-  [ drawAllCells board
-  , drawAllInsects board
+  [ --drawAllCells board,
+    drawAllInsects board
   , drawEnding maybeEnding
   , drawMovable movable
   , drawMove maybeEnding player
@@ -193,7 +193,7 @@ drawPossibleMoves (Just movable) board = drawPossible $ possibleMoves movable bo
 
 -- | Рисуем возможные ходы
 drawPossible :: [Coord] -> Picture
-drawPossible coords = color green $ scale cx cy $ pictures $ map drawCell coords
+drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell coords
   where
   cx = fromIntegral cellSizeX
   cy = fromIntegral cellSizeY
