@@ -33,6 +33,8 @@ type Piece = (Player, Insect, Picture)
 -- | Клетка может содержать несколько фишек
 type Cell = [Piece]
 
+
+
 -- | Поле
 type Board = Map Coord Cell
 
