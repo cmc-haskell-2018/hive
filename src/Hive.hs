@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wall #-}
 module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
@@ -54,6 +55,8 @@ data Game = Game
   , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
   }
+
+
 -- =========================================
 -- Инициализация
 -- =========================================
@@ -62,7 +65,7 @@ data Game = Game
 initGame :: IO Game
 initGame = gameWithImages <$> loadImages
 
-  -- | Инициализировать экран с заданными изображениями
+-- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
 gameWithImages images = Game
   { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images)    -- игровое поле - пусто
@@ -70,7 +73,7 @@ gameWithImages images = Game
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
   }
-  where 
+  where
     n = numberOfPieces
   
 -- | Создаем список из клеток игрового поля
@@ -110,7 +113,7 @@ createPieces pic = Map.fromList
   , ((x, 8), [(Black, Ant, t 9)])
   , ((x, 10), [(Black, Ant, t 9)])]
   where
-    x = cellDistance + numberOfPieces
+    x = cellDistance + numberOfPieces + 1
     t = takePic pic
 
     -- Взять картинку из списка по номеру (кажется, такой подход абсолютно отвратителен, но я не уверена)
@@ -160,9 +163,10 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 
 -- | Рисуем всё
 drawGame :: Game -> Picture
-drawGame Game{gameBoard = board} = pictures
+drawGame Game{gameBoard = board, gameEnding = maybeEnding} = pictures
   [ drawAllCells board
-  , drawAllInsects board]
+  , drawAllInsects board
+  , drawEnding maybeEnding]
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
@@ -225,20 +229,21 @@ handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+  | otherwise = checkWinner $ shiftGame $ 
+        makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+  | otherwise = checkWinner $ shiftGame $ 
+        makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame _ game = game
-
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
   | pieces == [] = game
   | pieceColor top /= player = game
-  -- possibleMoves movable board False  == [] = game -- кажется это проверка здесь не нужна, 
+  | possibleMoves movable board == [] = game
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
@@ -252,6 +257,7 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
     top = head pieces    -- самая верхняя фишка в списке
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
+
 
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
@@ -282,17 +288,13 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
      , gameEnding = Nothing
    }
    | otherwise = game    -- если выбранный ход невозможен
-  where
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
-  
+
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
 
--- | Список координат всех допустимых клеток для постановки фишки - НУЖНО НАПИСАТЬ!!!
--- Пока что возвращает координаты всех клеток поля
--- possibleMoves _ board = map fst $ Map.toList board
-
+-- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
 possibleMoves ::Movable-> Board ->  [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
@@ -302,7 +304,8 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | flag == False && ins == Hopper = (x,y) : delStartCells (hopper_cells (x,y) board) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
-  flag = elem (x,y) coordsOnStart
+  flag = x < -(n+1) || x > n+1
+  n = numberOfPieces
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
@@ -319,8 +322,9 @@ poss_move board (x, y)
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
-delStartCells l = filter (\(x,_) -> x >= -(n+1) && x <= n+1 ) l
- where n = numberOfPieces
+delStartCells l = filter (\(x, _) -> x >= -(n+1) && x <= n+1 ) l
+  where 
+    n = numberOfPieces
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
 -- |ход. Но в отличии от всех остальных фишек, он может перемещать поверх других фишек.
@@ -410,9 +414,8 @@ for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
  |otherwise = []
 
---for_hopper _ _ [] = []
+-- | Установить gameEnding в Game, если игра завершилась
 
-  -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
 checkWinner game = game{gameEnding = winner (gameBoard game)}
 
@@ -425,7 +428,7 @@ switchPlayer Black = Beige
 updateGame :: Float -> Game -> Game
 updateGame _ = id
 
--- | Определение победителя - НУЖНО НАПИСАТЬ!!!
+-- | Определение победителя
 winner :: Board -> Maybe Ending
 winner board
   | blackLose && beigeLose = Just Tie
@@ -459,8 +462,6 @@ beeIsLocked board (x, y) = isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
                            isNotEmpty (x, y+2) && isNotEmpty (x, y-2)
     where
       isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
-
-
 
 -- | Это просто для вызова shiftBoard,
 -- потому что делать shiftBoard еще больше я замучаюсь
@@ -539,11 +540,11 @@ numberOfPieces = 11
 
 -- | Ширина игрового поля в клетках.
 boardWidth :: Int
-boardWidth  = 2 * (numberOfPieces + cellDistance) + 2
+boardWidth  = 2 * (numberOfPieces + 1 + cellDistance) + 2
 
 -- | Высота игрового поля в клетках.
 boardHeight :: Int
-boardHeight = 4 * numberOfPieces + 3
+boardHeight = 4 * (numberOfPieces + 1) + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
@@ -551,7 +552,7 @@ cellSizeX = 35
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
-cellSizeY = round ((fromIntegral cellSizeX) / (sqrt 3))
+cellSizeY = round ((fromIntegral cellSizeX) / ( sqrt 3) :: Double)
 
 -- | Ширина экрана в пикселях.
 screenWidth :: Int
@@ -574,11 +575,3 @@ allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen, Spider, Beetle, Hopper, Ant])
-
--- | Список координат, где стоят фишки в начале игры
-coordsOnStart :: [Coord]
-coordsOnStart = [ (-15, -10),(-15, -8), (-15, -6),(-15, -4),(-15, -2), 
-                  (-15, 0),  (-15, 2),  (-15, 4), (-15, 6), (-15, 8), (-15, 10),
-                  (15, 10),  (15, 8),   (15, 6),  (15, 4),  (15, 2), 
-                  (15, 0),   (15, -2),  (15, -4), (15, -6), (15, -8), (15, -10)] 
-
