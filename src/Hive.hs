@@ -48,15 +48,18 @@ data Player = Beige | Black
 -- | Окончание игры
 data Ending = Win Player | Tie
 
-data Step = First |Secind |Third | Fours | Other
-  deriving (Eq)
-  
+-- | Контроль количества шагов
+data Step = First | Second | Third | Fours | Other 
+  deriving (Enum, Eq)
+
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
   , gamePlayer :: Player    -- Чей ход?
   , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
+  , gameStepBlack :: Step -- Номер хода черного игрока 
+  , gameStepBeige :: Step -- Номер хода бежевого игрока 
   }
 
 -- =========================================
@@ -74,6 +77,8 @@ gameWithImages images = Game
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
+  , gameStepBlack = First -- первый ход черного
+  , gameStepBeige = First -- первый ход бежевого
   }
   where
     n = numberOfPieces
@@ -242,24 +247,29 @@ handleGame _ game = game
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
-takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board}
+takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game
   | pieceColor top /= player = game
   | possibleMoves movable board == [] = game
+  | (not (checkQueen board player step)) && (checkQueenStep movable) = game
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
     , gameMovable = Just movable
     , gameEnding = Nothing
+    , gameStepBlack = gameStepBlack game
+    , gameStepBeige = gameStepBeige game
     }
   where
+    step = if player == Black then stepBlack else stepBeige
     i = round (x / fromIntegral cellSizeX)
     j = round (y / fromIntegral cellSizeY)
     pieces = fromMaybe [] $ Map.lookup (i, j) board    -- список фишек в клетке с нужными координатами
     top = head pieces    -- самая верхняя фишка в списке
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
-
+    checkQueenStep :: Movable -> Bool
+    checkQueenStep ( (_,_), (_,ins,_)) = if ins /= Queen then True else False
 
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
@@ -282,22 +292,37 @@ mouseToCell (x, y) board
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
-makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable}
-   | elem (i, j) (possibleMoves movable board) = Game    -- если выбранный ход возможен
+makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+   | (elem (i, j) (possibleMoves movable board)) = Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) (i,j) board
      , gameMovable = Nothing
      , gameEnding = Nothing
-   }
+     , gameStepBlack = if player == Black then nextStep stepBlack else stepBlack
+     , gameStepBeige = if player == Beige then nextStep stepBeige else stepBeige
+     }
    | otherwise = game    -- если выбранный ход невозможен
+     where 
+       nextStep :: Step -> Step
+       nextStep x | x == First = Second
+                  | x == Second = Third
+                  | x == Third = Fours
+                  | otherwise = Other
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
+
 
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
 
+-- | поставлена ли Пчеломатка до 4-го хода
+checkQueen :: Board -> Player -> Step -> Bool
+checkQueen board Black Fours = if (Map.lookup (cellDistance + numberOfPieces + 1, -10) board /= (Just [])) then False else True
+checkQueen board Beige Fours = if (Map.lookup (-(cellDistance + numberOfPieces + 1), -10) board /= (Just [])) then False else True
+checkQueen _ _ _ = True
+
 -- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
-possibleMoves ::Movable-> Board ->  [Coord]
+possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
@@ -417,13 +442,6 @@ for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
  |otherwise = []
 
---for_hopper _ _ [] = []
-
-  -- | Установить gameEnding в Game, если игра завершилась
--- Кузнечик не передвигается общепринятым способом. Он
--- перепрыгивает с одного места на другое незанятое место
--- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
--- через 1 фишку.
 
 -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
