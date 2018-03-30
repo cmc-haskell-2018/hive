@@ -48,10 +48,11 @@ data Player = Beige | Black
 -- | Окончание игры
 data Ending = Win Player | Tie
   deriving (Eq)
-  
-data Step = First | Second | Third | Fours | Other
-  deriving (Eq)
-  
+
+-- | Контроль количества шагов
+data Step = First | Second | Third | Fours | Other 
+  deriving (Enum, Eq)
+
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
@@ -324,7 +325,7 @@ checkQueen board Beige Fours = if (Map.lookup (-(cellDistance + numberOfPieces +
 checkQueen _ _ _ = True
 
 -- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
-possibleMoves ::Movable -> Board -> [Coord]
+possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
