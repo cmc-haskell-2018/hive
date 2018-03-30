@@ -183,7 +183,20 @@ drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
   , drawEnding maybeEnding
   , drawMovable movable
   , drawMove maybeEnding player
-  , drawDemand stepBeige stepBlack player maybeEnding]
+  , drawDemand stepBeige stepBlack player maybeEnding
+  , drawPossibleMoves movable board]
+
+-- | Проверяем, нужно ли рисовать возможные ходы
+drawPossibleMoves :: Maybe Movable -> Board -> Picture
+drawPossibleMoves Nothing _ = blank
+drawPossibleMoves (Just movable) board = drawPossible $ possibleMoves movable board
+
+-- | Рисуем возможные ходы
+drawPossible :: [Coord] -> Picture
+drawPossible coords = color green $ scale cx cy $ pictures $ map drawCell coords
+  where
+  cx = fromIntegral cellSizeX
+  cy = fromIntegral cellSizeY
 
 -- | Рисуем передвигаемую фишку и соответствующий текст
 drawMovable :: Maybe Movable -> Picture
@@ -222,15 +235,15 @@ writeDemand = placeText $ text "Take the Queen bee"
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
-drawAllCells board = scale cx cy $ pictures $ map drawCell tl
+drawAllCells board = color  black $ scale cx cy $ pictures $ map drawCell tl
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
-    tl = Map.toList board
+    tl = map fst $ Map.toList board
 
 -- | Рисуем клетку
-drawCell :: (Coord, Cell) -> Picture
-drawCell ((x, y),_) = color  black $ line
+drawCell :: Coord -> Picture
+drawCell (x, y) = line
   [ (a - 1 / 3, b - 1)
   , (a + 1 / 3, b - 1)
   , (a + 2 / 3, b)
