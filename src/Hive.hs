@@ -38,6 +38,9 @@ type Cell = [Piece]
 -- | Поле
 type Board = Map Coord Cell
 
+-- | Достижимые клетки (для проверки улья на разрывность)
+type AccCells = Map Coord Cell
+
 -- | Фишка с координатами
 type Movable = (Coord, Piece)
 
@@ -241,11 +244,6 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
   | otherwise = checkWinner $ shiftGame $ 
         makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
-handleGame (EventKey (MouseButton RightButton) Down _ mouse) game
-  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
-  | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ shiftGame $ 
-        makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame _ game = game
 
 -- | Взять фишку с координатами под мышкой, если возможно
@@ -253,15 +251,15 @@ takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game
   | pieceColor top /= player = game
-  | possibleMoves movable board == [] = game
+  | possibleMoves movable (deleteInsect (i, j) board) == [] = game
   | (not (checkQueen board player step)) && (checkQueenStep movable) = game
   | otherwise = Game
     { gameBoard = deleteInsect (i, j) board
     , gamePlayer = player
     , gameMovable = Just movable
     , gameEnding = Nothing
-    , gameStepBlack = gameStepBlack game
-    , gameStepBeige = gameStepBeige game
+    , gameStepBlack = stepBlack
+    , gameStepBeige = stepBeige
     }
   where
     step = if player == Black then stepBlack else stepBeige
@@ -328,15 +326,15 @@ checkQueen _ _ _ = True
 possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
-  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
-  | flag == False && ins == Queen  = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
-  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
-  | flag == False && ins == Hopper = hopper_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
-  | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
+  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = []
+  | flag == False && ins == Queen  = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | flag == False && ins == Beetle = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
+  | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | otherwise = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
  where
   flag = x < -(n+1) || x > n+1
   n = numberOfPieces
-  only_free_cells = Map.filterWithKey (\_ val -> val == []) board
+  only_free_cells = Map.filter (\val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
 -- | Может ли двигаться данная фишка, true - не может двигаться
@@ -414,44 +412,43 @@ hopper_cells (x,y) l = filter (\(a,b) ->
   list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
   list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0
 
-
 -- | Только ходы, не разрывающие улья
-notTearingMoves :: [Coord] -> Board -> [Coord]
-notTearingMoves moves board = filter (\coord -> doesNotTear coord board) moves
+notTearingMoves :: Board -> [Coord] -> [Coord]
+notTearingMoves board = filter (\coord -> doesNotTear coord board)
 
 -- | Проверить, что ход не разрывает улья
 doesNotTear :: Coord -> Board -> Bool
 doesNotTear coord board = accSize + sideSize == 2 * n - 1
   where
-    accSize = Map.foldr (\x y -> length x + y) 0 (areAccessible coord board)    --  количество фишек на поле, достижимых из данной клетки
+    accSize = Map.foldr (\x y -> length x + y) 0 (accessibleCells coord board)    --  количество фишек на поле, достижимых из данной клетки
     sideSize = Map.size (Map.filterWithKey (\(x, _) ins -> (x < -(n+1) || x > n+1) && ins /= []) board)     -- количество не введенных в игру фишек
     n = numberOfPieces
 
--- | Клетки с фишками, достижимыми из данной клетки
-areAccessible :: Coord -> Board -> Board
-areAccessible (x, y) board =
-  checkForPieces (x, y+2) $
-  checkForPieces (x+1, y+1) $
-  checkForPieces (x-1, y+1) $
-  checkForPieces (x, y-2) $
-  checkForPieces (x-1, y-1) $
-  checkForPieces (x+1, y-1) board
+-- | Клетки с фишками, достижимые из данной клетки
+accessibleCells :: Coord -> Board -> AccCells
+accessibleCells (x, y) board =
+  checkForPieces (x, y+2) board $
+  checkForPieces (x+1, y+1) board $
+  checkForPieces (x-1, y+1) board $
+  checkForPieces (x, y-2) board $
+  checkForPieces (x-1, y-1) board $
+  checkForPieces (x+1, y-1) board Map.empty
 
--- | Проверяем фишки сверху от заданной клетки
-checkForPieces :: Coord -> Board -> Board
-checkForPieces coord@(x, y) board
-  | isSide = Map.empty
-  | check == [] = Map.empty
-  | Map.member coord board = Map.empty
+-- | Проверяем фишки вокруг заданной клетки
+checkForPieces :: Coord -> Board -> AccCells -> AccCells
+checkForPieces coord@(x, y) board accCells
+  | isSide = accCells
+  | check == [] = accCells
+  | Map.member coord accCells = accCells
   | otherwise = 
-    checkForPieces (x-1, y+1) $
-    checkForPieces (x, y+2) $
-    checkForPieces (x+1, y+1) $
-    checkForPieces (x+1, y-1) $
-    checkForPieces (x, y-2) $
-    checkForPieces (x-1, y-1) newBoard
+    checkForPieces (x-1, y+1) board $
+    checkForPieces (x, y+2) board $
+    checkForPieces (x+1, y+1) board $
+    checkForPieces (x+1, y-1) board $
+    checkForPieces (x, y-2) board $
+    checkForPieces (x-1, y-1) board newAccCells
       where
-        newBoard = Map.insert coord check board     -- вставить текущую клетку в составляемый список
+        newAccCells = Map.insert coord check accCells     -- вставить текущую клетку в составляемый список
         check = fromMaybe [] (Map.lookup coord board)     -- возвращает список фишек в клетке, а также пустой список, если такой клетки нет 
         isSide      -- находится ли фишка на границе или за границей игрового поля
           | y - x >= 2 * (n+1) = True
