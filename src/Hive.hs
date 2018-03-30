@@ -176,10 +176,49 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 
 -- | Рисуем всё
 drawGame :: Game -> Picture
-drawGame Game{gameBoard = board, gameEnding = maybeEnding} = pictures
+drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
+            , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack} = pictures
   [ drawAllCells board
   , drawAllInsects board
-  , drawEnding maybeEnding]
+  , drawEnding maybeEnding
+  , drawMovable movable
+  , drawMove maybeEnding player
+  , drawDemand stepBeige stepBlack player maybeEnding]
+
+-- | Рисуем передвигаемую фишку и соответствующий текст
+drawMovable :: Maybe Movable -> Picture
+drawMovable Nothing = blank
+drawMovable (Just (_, (Beige, _, pic))) = pictures
+  [ translate (fromIntegral (- screenWidth) / 2 + 50) (fromIntegral (-screenHeight) / 2 + 50) $
+        scale 2 2 pic
+  , translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral (-screenHeight) / 2 + 100) $
+        scale 0.3 0.3 $ text "You are holding"]
+drawMovable (Just (_, (Black, _, pic))) = pictures
+  [ translate (fromIntegral screenWidth / 2 - 50) (fromIntegral (-screenHeight) / 2 + 50) $
+        scale 2 2 pic
+  , translate (fromIntegral screenWidth / 2 - 320) (fromIntegral (-screenHeight) / 2 + 100) $
+        scale 0.3 0.3 $ text "You are holding"]
+
+-- | Пишем, чей ход
+drawMove :: Maybe Ending -> Player -> Picture
+drawMove (Just _) _ = blank
+drawMove Nothing player = placeText $ text $ (show player) ++ " team's move"
+  where
+    placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
+        scale 0.3 0.3
+
+-- | Проверяем, нужно ли взять пчелу
+drawDemand :: Step -> Step -> Player -> Maybe Ending -> Picture
+drawDemand Fours _ Beige Nothing = writeDemand
+drawDemand _ Fours Black Nothing = writeDemand
+drawDemand _ _ _ _ = blank
+
+-- | Пишем, что нужно взять пчелу
+writeDemand :: Picture
+writeDemand = placeText $ text "Take the Queen bee"
+  where
+    placeText = (translate (fromIntegral screenWidth / 2 - 420) (fromIntegral screenHeight / 2 - 60)) .
+        scale 0.3 0.3
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
@@ -224,7 +263,7 @@ drawEnding Nothing = blank
 drawEnding (Just ending) = placeText $ text $ endingText ending
   where
     placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
-        scale 0.4 0.4
+        scale 0.3 0.3
 
 -- | Надпись об окончании игры
 endingText :: Ending -> String
@@ -244,24 +283,46 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
   | otherwise = checkWinner $ shiftGame $ 
         makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
+handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- положить фишку обратно
+  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
+  | isNothing (gameMovable game) = game    -- фишка еще не взята, отменять нечего
+  | otherwise = putPieceBack game       -- фишка взята, кладем ее на место
 handleGame _ game = game
+
+-- | Положить фишку на место
+putPieceBack :: Game -> Game
+putPieceBack game@Game{gameMovable = Just (coord, piece@(player,insect, _)), gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+  = game{gameMovable = Nothing, gameBoard = putInsect piece coord board, gameStepBeige = prevBeigeStep, gameStepBlack = prevBlackStep}
+    where
+      prevBlackStep :: Step
+      prevBlackStep
+        | player == Black && insect == Queen && stepBlack == Other = Fours
+        | otherwise = stepBlack
+      prevBeigeStep :: Step
+      prevBeigeStep
+        | player == Beige && insect == Queen && stepBeige == Other = Fours
+        | otherwise = stepBeige    
+putPieceBack game = game    -- чтобы компилятор не ругался
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game
   | pieceColor top /= player = game
-  | possibleMoves movable (deleteInsect (i, j) board) == [] = game
-  | (not (checkQueen board player step)) && (checkQueenStep movable) = game
-  | otherwise = Game
-    { gameBoard = deleteInsect (i, j) board
-    , gamePlayer = player
-    , gameMovable = Just movable
-    , gameEnding = Nothing
-    , gameStepBlack = stepBlack
-    , gameStepBeige = stepBeige
-    }
+--  | possibleMoves movable (deleteInsect (i, j) board) == [] = game
+  | checkQueenStep movable = newGame{ gameStepBeige = if player == Beige then Other else stepBeige
+                                    , gameStepBlack = if player == Black then Other else stepBlack}
+  | step == Fours = game
+  | otherwise = newGame
   where
+    newGame = Game
+      { gameBoard = deleteInsect (i, j) board
+      , gamePlayer = player
+      , gameMovable = Just movable
+      , gameEnding = Nothing
+      , gameStepBlack = stepBlack
+      , gameStepBeige = stepBeige
+      }
     step = if player == Black then stepBlack else stepBeige
     i = round (x / fromIntegral cellSizeX)
     j = round (y / fromIntegral cellSizeY)
@@ -270,7 +331,7 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige
     movable = ((i, j), top)
     pieceColor (p, _, _) = p
     checkQueenStep :: Movable -> Bool
-    checkQueenStep ( (_,_), (_,ins,_)) = if ins /= Queen then True else False
+    checkQueenStep ( (_,_), (_,ins,_)) = ins == Queen       -- взяли пчелу
 
 -- | Удаление фишки из старой позиции (перед перемещением)
 deleteInsect :: Coord -> Board -> Board
@@ -305,22 +366,14 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
    | otherwise = game    -- если выбранный ход невозможен
      where 
        nextStep :: Step -> Step
-       nextStep x | x == First = Second
-                  | x == Second = Third
-                  | x == Third = Fours
-                  | otherwise = Other
+       nextStep x | x == Other = Other
+                  | otherwise = succ x
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
 
 
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
-
--- | поставлена ли Пчеломатка до 4-го хода
-checkQueen :: Board -> Player -> Step -> Bool
-checkQueen board Black Fours = if (Map.lookup (cellDistance + numberOfPieces + 1, -10) board /= (Just [])) then False else True
-checkQueen board Beige Fours = if (Map.lookup (-(cellDistance + numberOfPieces + 1), -10) board /= (Just [])) then False else True
-checkQueen _ _ _ = True
 
 -- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
 possibleMoves :: Movable -> Board -> [Coord]
