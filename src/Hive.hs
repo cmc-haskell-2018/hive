@@ -3,7 +3,7 @@ module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
---import Data.List(find)
+--import Data.List
 import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Map as Map
@@ -412,7 +412,57 @@ hopper_cells (x,y) l = filter (\(a,b) ->
   list_x1 = [x+2,x+3 .. maximum (map fst $ l)] --список координат х > 0 
   list_x2 = [x-2,x-3 .. minimum (map fst $ l)] --список координат x < 0
   list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
-  list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0 
+  list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0
+
+
+-- | Только ходы, не разрывающие улья
+notTearingMoves :: [Coord] -> Board -> [Coord]
+notTearingMoves moves board = filter (\coord -> doesNotTear coord board) moves
+
+-- | Проверить, что ход не разрывает улья
+doesNotTear :: Coord -> Board -> Bool
+doesNotTear coord board = accSize + sideSize == 2 * n - 1
+  where
+    accSize = Map.foldr (\x y -> length x + y) 0 (areAccessible coord board)    --  количество фишек на поле, достижимых из данной клетки
+    sideSize = Map.size (Map.filterWithKey (\(x, _) ins -> (x < -(n+1) || x > n+1) && ins /= []) board)     -- количество не введенных в игру фишек
+    n = numberOfPieces
+
+-- | Клетки с фишками, достижимыми из данной клетки
+areAccessible :: Coord -> Board -> Board
+areAccessible (x, y) board =
+  checkForPieces (x, y+2) $
+  checkForPieces (x+1, y+1) $
+  checkForPieces (x-1, y+1) $
+  checkForPieces (x, y-2) $
+  checkForPieces (x-1, y-1) $
+  checkForPieces (x+1, y-1) board
+
+-- | Проверяем фишки сверху от заданной клетки
+checkForPieces :: Coord -> Board -> Board
+checkForPieces coord@(x, y) board
+  | isSide = Map.empty
+  | check == [] = Map.empty
+  | Map.member coord board = Map.empty
+  | otherwise = 
+    checkForPieces (x-1, y+1) $
+    checkForPieces (x, y+2) $
+    checkForPieces (x+1, y+1) $
+    checkForPieces (x+1, y-1) $
+    checkForPieces (x, y-2) $
+    checkForPieces (x-1, y-1) newBoard
+      where
+        newBoard = Map.insert coord check board     -- вставить текущую клетку в составляемый список
+        check = fromMaybe [] (Map.lookup coord board)     -- возвращает список фишек в клетке, а также пустой список, если такой клетки нет 
+        isSide      -- находится ли фишка на границе или за границей игрового поля
+          | y - x >= 2 * (n+1) = True
+          | x <= -(n+1) = True
+          | x + y <= -2 * (n+1) = True
+          | x - y >= 2 * (n+1) = True
+          | x >= n+1 = True
+          | x + y >= 2 * (n+1) = True
+          | otherwise = False
+            where n = numberOfPieces
+  
 
 -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
