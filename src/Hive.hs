@@ -3,7 +3,7 @@ module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
---import Data.List
+import Data.List
 import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Map as Map
@@ -16,6 +16,7 @@ runHive = do
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
     fps     = 10      -- кол-во кадров в секунду
+
 
 -- =========================================
 -- Модель игры
@@ -50,7 +51,6 @@ data Player = Beige | Black
 
 -- | Окончание игры
 data Ending = Win Player | Tie
-  deriving (Eq)
 
 -- | Контроль количества шагов
 data Step = First | Second | Third | Fours | Other 
@@ -66,7 +66,7 @@ data Game = Game
   , gameStepBeige :: Step -- Номер хода бежевого игрока 
   }
 
-
+  
 -- =========================================
 -- Инициализация
 -- =========================================
@@ -88,7 +88,6 @@ gameWithImages images = Game
   }
   where
     n = numberOfPieces
-  
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
@@ -284,8 +283,9 @@ endingText Tie = "It's a Tie:)"
 endingText (Win Black) = "Black Team Won"
 endingText (Win Beige) = "Beige Team Won"
 
+
 -- =========================================
--- Обработка событий
+-- Перемещение фишек
 -- =========================================
 
 
@@ -375,10 +375,15 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
          | otherwise = succ x
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
 
-
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
+
+
+-- =========================================
+-- Общие функции для определения возможных ходов
+-- =========================================
+
 
 -- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
 possibleMoves :: Movable -> Board -> [Coord]
@@ -387,7 +392,9 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = []
   | flag == False && ins == Queen  = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
   | flag == False && ins == Beetle = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
-  | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
+  | flag == False && ins == Ant = antMoves (x, y) board
+  | flag == False && ins == Spider = spiderMoves (x, y) board
   | otherwise = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
  where
   flag = x < -(n+1) || x > n+1
@@ -395,43 +402,22 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   only_free_cells = Map.filter (\val -> val == []) board
   is_not_possible = poss_move board (x,y)  
 
--- | Может ли двигаться данная фишка, true - не может двигаться
+-- | Может ли двигаться данная фишка, true - не может двигаться,false иначе
 poss_move :: Board -> Coord -> Bool
-poss_move board (x, y) =   (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) ==False)
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2)== False && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) == False &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2) )
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1)== False && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1)== False &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-                        
-                        || (isNotEmpty (x-1, y+1) == False && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
-
-                        || (isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
-                           isNotEmpty (x-1, y-1) && isNotEmpty (x+1, y-1) &&
-                           isNotEmpty (x, y+2) && isNotEmpty (x, y-2))
+poss_move board (x, y)    
+  | sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1), isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] == 5   = True
+  | otherwise =  check1(x,y) || check2(x,y)  -- проверка на расположение 3 фишек вокруг данной,всего 2 конфигурации                         
  where
-  isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+  isNotEmpty :: Coord -> Int
+  isNotEmpty (i, j) = if Map.lookup (i, j) board /= (Just []) then 1 else 0
+  check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
+  check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
 
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
-delStartCells l = filter (\(x, _) -> x >= -(n+1) && x <= n+1 ) l
-  where n = numberOfPieces
+delStartCells l = filter (\(x,_) -> x >= -(n+1) && x <= n+1 ) l
+ where n = numberOfPieces
 
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
@@ -443,32 +429,13 @@ queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1)
   ||  (a,b) == (x,y-2)
   ||  (a,b) == (x-1,y-1)
   ||  (a,b) == (x+1,y-1)
-  )
-  
--- Кузнечик не передвигается общепринятым способом. Он
--- перепрыгивает с одного места на другое незанятое место
--- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
--- через 1 фишку.
+   )
 
-hopper_cells :: Coord -> [Coord] -> [Coord]
-hopper_cells _ [] = []
-hopper_cells (x,y) l = filter (\(a,b) -> 
-  -- выбираются  клетки для вертикальных прыжков
-     elem (a,b) (zip [x,x ..] list_ver1 ) 
-  || elem (a,b) (zip [x,x ..] list_ver2 ) 
-  -- далее выбираются ячекйки для диагональных прыжков кузнечика 
-  || elem (a,b) (zip list_x1 list_y1) 
-  || elem (a,b) (zip list_x1 list_y2)
-  || elem (a,b) (zip list_x2 list_y1) 
-  || elem (a,b) (zip list_x2 list_y2) 
-    ) l
- where
-  list_ver1 = [y+4, y+6 .. maximum (map snd $ l)] --список координат y через 2 позиции y > 0
-  list_ver2 = [y-4, y-6 .. minimum (map snd $ l)] --списко координат y через 2 позиции y < 0
-  list_x1 = [x+2,x+3 .. maximum (map fst $ l)] --список координат х > 0 
-  list_x2 = [x-2,x-3 .. minimum (map fst $ l)] --список координат x < 0
-  list_y1 = [y+2,y+3 .. maximum (map snd $ l)] -- список координат y > 0 
-  list_y2 = [y-2,y-3 .. minimum (map snd $ l)] -- список координат y < 0
+
+-- =========================================
+-- Все, что относится к проверке на неразрывность
+-- =========================================
+
 
 -- | Только ходы, не разрывающие улья
 notTearingMoves :: Board -> [Coord] -> [Coord]
@@ -517,11 +484,178 @@ checkForPieces coord@(x, y) board accCells
           | x + y >= 2 * (n+1) = True
           | otherwise = False
             where n = numberOfPieces
-  
 
--- | Установить gameEnding в Game, если игра завершилась
-checkWinner :: Game -> Game
-checkWinner game = game{gameEnding = winner (gameBoard game)}
+
+-- =========================================
+-- Все, что относится к пауку
+-- =========================================
+
+-- | Возможные ходы для паука
+spiderMoves :: Coord -> Board -> [Coord]
+spiderMoves coord board = spiderSteps 0 coord board [coord] 
+
+-- | Рекурсивно собираем возможные ходы паука
+spiderSteps :: Int -> Coord -> Board -> [Coord] -> [Coord]
+spiderSteps 3 coord _ _ = [coord]
+spiderSteps n (x, y) board passed = collectUp ++ collectUpLeft ++ collectUpRight ++
+                                    collectDown ++ collectDownLeft ++ collectDownRight
+  where
+    isEmpty c = fromMaybe [(Black, Queen, blank)] c == []    -- пустая ли клетка
+    isFull c = fromMaybe [] c /= []    -- заполнена ли клетка
+    up = Map.lookup (x, y+2) board    -- верхняя клетка
+    upLeft = Map.lookup (x-1, y+1) board    -- верхняя левая клетка
+    upRight = Map.lookup (x+1, y+1) board    -- верхняя правая клетка
+    down = Map.lookup (x, y-2) board    -- нижняя клетка
+    downLeft = Map.lookup (x-1, y-1) board    -- нижняя левая клетка
+    downRight = Map.lookup (x+1, y-1) board    -- нижняя правая клетка
+    
+    collectUp = if isEmpty up && (isEmpty upLeft && isFull upRight || isFull upLeft && isEmpty upRight)
+                        && doesNotTear (x, y+2) board && not (elem (x, y+2) passed)       -- собрать ходы сверху
+                    then spiderSteps (n+1) (x, y+2) board ((x, y+2):passed) else []
+    collectUpLeft = if isEmpty upLeft && (isEmpty up && isFull downLeft || isEmpty downLeft && isFull up)
+                        && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) passed)       -- собрать ходы сверху слева
+                    then spiderSteps (n+1) (x-1, y+1) board ((x-1, y+1):passed) else []
+    collectUpRight = if isEmpty upRight && (isEmpty up && isFull downRight || isEmpty downRight && isFull up) 
+                        && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) passed)       -- собрать ходы сверху справа
+                    then spiderSteps (n+1) (x+1, y+1) board ((x+1, y+1):passed) else []
+    collectDown = if isEmpty down && (isEmpty downLeft && isFull downRight || isEmpty downRight && isFull downLeft)
+                        && doesNotTear (x, y-2) board && not (elem (x, y-2) passed)       -- собрать ходы снизу
+                    then spiderSteps (n+1) (x, y-2) board ((x, y-2):passed) else []
+    collectDownLeft = if isEmpty downLeft && (isEmpty upLeft  && isFull down || isEmpty down && isFull upLeft)
+                        && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) passed)       -- собрать ходы снизу слева
+                    then spiderSteps (n+1) (x-1, y-1) board ((x-1, y-1):passed) else []
+    collectDownRight = if isEmpty downRight && (isEmpty down  && isFull upRight || isEmpty upRight && isFull down)
+                        && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) passed)       -- собрать ходы снизу справа
+                    then spiderSteps (n+1) (x+1, y-1) board ((x+1, y-1):passed) else []
+
+
+-- =========================================
+-- Все, что относится к муравью
+-- =========================================
+
+
+-- | Возможные ходы для муравья
+antMoves :: Coord -> Board -> [Coord]
+antMoves (x, y) board = delete (x, y) $ collectAntMoves (x, y) board []
+
+-- | Рекурсивно собираем возможные ходы для муравья
+collectAntMoves :: Coord -> Board -> [Coord] -> [Coord]
+collectAntMoves (x, y) board accumulator = nub $ collectUp $ collectUpLeft $ collectUpRight $
+                                           collectDown $ collectDownLeft $ collectDownRight accumulator
+  where
+    up = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y+2) board) == []    -- пустая ли верхняя клетка
+    upLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y+1) board) == []    -- пустая ли верхняя левая клетка
+    upRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y+1) board) == []    -- пустая ли верхняя правая клетка
+    down = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y-2) board) == []    -- пустая ли нижняя клетка
+    downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
+    downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
+    
+    collectUp acc = if up && (upLeft || upRight)
+                        && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)       -- собрать ходы сверху
+                    then collectAntMoves (x, y+2) board ((x, y+2):acc) else acc
+    collectUpLeft acc = if upLeft && (up || downLeft)
+                        && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)       -- собрать ходы сверху слева
+                    then collectAntMoves (x-1, y+1) board ((x-1, y+1):acc) else acc
+    collectUpRight acc = if upRight && (up || downRight)
+                        && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)       -- собрать ходы сверху справа
+                    then collectAntMoves (x+1, y+1) board ((x+1, y+1):acc) else acc
+    collectDown acc = if down && (downLeft || downRight)
+                        && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)       -- собрать ходы снизу
+                    then collectAntMoves (x, y-2) board ((x, y-2):acc) else acc
+    collectDownLeft acc = if downLeft && (upLeft || down)
+                        && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)       -- собрать ходы снизу слева
+                    then collectAntMoves (x-1, y-1) board ((x-1, y-1):acc) else acc
+    collectDownRight acc = if downRight && (down || upRight)
+                        && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)       -- собрать ходы снизу справа
+                    then collectAntMoves (x+1, y-1) board ((x+1, y-1):acc) else acc
+
+
+-- =========================================
+-- Все, что относится к кузнечику
+-- =========================================
+
+
+-- на вход поле и список ключей выдает, поле с клетками   по данным ключам 
+keysToBoard :: [Coord] -> Board -> Board 
+keysToBoard [] _ = Map.empty
+keysToBoard (point: xs) board 
+  | Map.toList board == [] = Map.empty
+  | Map.member point board = Map.insert point listForPoint (keysToBoard xs board)
+  | otherwise = keysToBoard xs board 
+  where 
+   listForPoint = maybePiecetoPiece (Map.lookup point board)
+
+
+maybePiecetoPiece :: Maybe Cell -> Cell
+maybePiecetoPiece (Just l) = l
+maybePiecetoPiece Nothing = []
+
+-- Кузнечик не передвигается общепринятым способом. Он
+-- перепрыгивает с одного места на другое незанятое место
+-- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
+-- через 1 фишку. 
+hopper_cells :: Coord -> Board-> [Coord]
+hopper_cells (x,y) board 
+  | l == [] = []
+  -- ищем в каждом направлении первые n непустых клеток
+  -- фльтром получаем из данного списка клеток  - l координаты клеток в одном из 6 направлений, 
+  -- после по этим координатам достаем поле(уже вместе со списками насекомых)
+  -- dir1, dir3, dir4 идут по порядку следования, dir2 dir5 dir6 наоборот, поэтому делаем reverse 
+  | otherwise =  delOneCoord (x,y+2) (takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir1 )l) board) False) ++
+                 delOneCoord (x,y-2) (takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir2 )l) board) True)  ++
+                 delOneCoord (x+1,y+1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir3 )l) board) False) ++ 
+                 delOneCoord (x+1,y-1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir4 )l) board) False) ++
+                 delOneCoord (x-1,y+1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir5 )l) board) True) ++
+                 delOneCoord (x-1,y-1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir6 )l) board) True) 
+  where
+  l = map fst $ Map.toList board
+  dir1 = (for_hopper 1 (x,y) (maxmin l)) --направление 1(direction)
+  dir2 = (for_hopper 2 (x,y) (maxmin l)) --направление 2
+  dir3 = (for_hopper 3 (x,y) (maxmin l)) --направление 3                             
+  dir4 = (for_hopper 4 (x,y) (maxmin l)) --направление 4                               
+  dir5 = (for_hopper 5 (x,y) (maxmin l)) --направление 5
+  dir6 = (for_hopper 6 (x,y) (maxmin l)) --направление 6 
+
+--вспомогательные функции
+delOneCoord :: Coord -> [Coord] -> [Coord]
+delOneCoord _ [] = []
+delOneCoord a (x:xs) 
+  | a == x = xs
+  | otherwise = x : delOneCoord a xs 
+
+maxmin:: [Coord] -> [Coord]
+maxmin [] = []
+maxmin l  = [  ( maximum (map fst $ l), maximum (map snd $ l) ) , ( minimum (map fst $ l),minimum (map snd $ l))]  
+ 
+ -- Возвращает свободные клетки до первой занятой
+takeWhileMap :: Board -> Bool->[Coord] 
+takeWhileMap board flag  
+  | l == [] = []
+  | snd head_l == [] =  fst head_l : (takeWhileMap tail_map flag)
+  | otherwise = [] 
+  where 
+    l = if flag then reverse (Map.toList board) else (Map.toList board) 
+    head_l = head l 
+    tail_map = Map.fromList (tail l)
+
+-- выдает по номеру список клеток в которым прыгает кузнечик, всего 6 направлений, я их отдельно обрабатываю, собственно из-за этого  и существует  for_hopper
+for_hopper :: Int-> Coord -> [Coord] -> [Coord]
+for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
+ | n > 6 || n < 1 = [] 
+ |n == 1 =  zip [x,x ..] [y+2, y+4 .. max_y] --список координат y через 2 позиции y > 0
+ |n == 2 =  zip [x,x ..] [y-2, y-4 .. min_y] --списко координат y через 2 позиции y < 0
+ |n == 3 =  zip [x+1,x+2 .. max_x] [y+1,y+2 .. max_y]
+ |n == 4 =  zip [x+1,x+2 .. max_x] [y-1,y-2 .. min_y]
+ |n == 5 =  zip [x-1,x-2 .. min_x] [y+1,y+2 .. max_y]
+ |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
+ |otherwise = []
+for_hopper _ _ _ = []
+
+
+-- =========================================
+-- По мелочи
+-- =========================================
+
 
 -- | Сменить текущего игрока
 switchPlayer :: Player -> Player
@@ -531,6 +665,16 @@ switchPlayer Black = Beige
 -- | Обновление игры.
 updateGame :: Float -> Game -> Game
 updateGame _ = id
+
+
+-- =========================================
+-- Все, что относится к определению победителя
+-- =========================================
+
+
+-- | Установить gameEnding в Game, если игра завершилась
+checkWinner :: Game -> Game
+checkWinner game = game{gameEnding = winner (gameBoard game)}
 
 -- | Определение победителя
 winner :: Board -> Maybe Ending
@@ -567,11 +711,16 @@ beeIsLocked board (x, y) = isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
     where
       isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
 
+
+-- =========================================
+-- Все, что относится к сдвигу массива фишек
+-- =========================================
+
+
 -- | Это просто для вызова shiftBoard,
 -- потому что делать shiftBoard еще больше я замучаюсь
 shiftGame  :: Game -> Game
 shiftGame game@Game{gameBoard = board} = game{gameBoard = shiftBoard board}
-
 -- | Передвинуть массив фишек, если он касается края поля
 -- если поставить фишки на противоположные края, то будет очень плохо
 -- но предполагается, что у нас будет possibleMoves, так что все нормально
@@ -634,7 +783,6 @@ shiftBoard board    -- закройте глазки и не смотрите н
                                                     then(x+i, y+j)
                                                     else (x, y))
 
-
 -- =========================================
 -- Константы, параметры игры
 -- =========================================
@@ -681,3 +829,6 @@ allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen, Spider, Beetle, Hopper, Ant])
+
+
+
