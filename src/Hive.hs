@@ -325,13 +325,12 @@ checkQueen _ _ _ = True
 possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
-  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
+  | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = []
   | flag == False && ins == Queen  = check (queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells))) board 
   | flag == False && ins == Beetle = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | flag == False && ins == Hopper = delStartCells (hopper_cells (x,y) board) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
- where
-  def = Map.insert (x,y) [] Map.empty   
+ where  
   flag = x < -(n+1) || x > n+1
   n = numberOfPieces
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
