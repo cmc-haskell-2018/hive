@@ -326,9 +326,9 @@ possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
-  | flag == False && ins == Queen  = (x,y) : check (queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells))) board 
-  | flag == False && ins == Beetle = (x,y) : queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
-  | flag == False && ins == Hopper = (x,y) : delStartCells (hopper_cells (x,y) board) 
+  | flag == False && ins == Queen  = check (queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells))) board 
+  | flag == False && ins == Beetle = queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
+  | flag == False && ins == Hopper = delStartCells (hopper_cells (x,y) board) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
   def = Map.insert (x,y) [] Map.empty   
@@ -348,7 +348,7 @@ poss_move board (x, y)
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
 
--- | проверить все координаты на то что в них можно ставить фишку
+-- | проверить все координаты на то что в них можно ставить фишку(для пчеломатки)
 check :: [Coord] -> Board -> [Coord]
 check [] _ = []
 check (x:xs) board = if poss_move  board x then check xs board  else x : check xs board 
