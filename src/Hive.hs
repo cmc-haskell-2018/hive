@@ -347,7 +347,7 @@ poss_move board (x, y)
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
 
--- | проверить все координаты на то что в них можно ставить фишку
+-- | проверить все координаты на то что в них можно ставить фишку(для пчеломатки)
 check :: [Coord] -> Board -> [Coord]
 check [] _ = []
 check (x:xs) board = if poss_move  board x then check xs board  else x : check xs board 
