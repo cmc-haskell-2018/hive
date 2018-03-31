@@ -394,6 +394,7 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | flag == False && ins == Beetle = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
   | flag == False && ins == Ant = antMoves (x, y) board
+  | flag == False && ins == Spider = spiderMoves (x, y) board
   | otherwise = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
  where
   flag = x < -(n+1) || x > n+1
@@ -483,6 +484,41 @@ checkForPieces coord@(x, y) board accCells
           | x + y >= 2 * (n+1) = True
           | otherwise = False
             where n = numberOfPieces
+
+
+-- =========================================
+-- Все, что относится к пауку
+-- =========================================
+
+-- | Возможные ходы для паука
+spiderMoves :: Coord -> Board -> [Coord]
+spiderMoves coord board = spiderSteps 0 coord board [coord] 
+
+-- | Рекурсивно собираем возможные ходы паука
+spiderSteps :: Int -> Coord -> Board -> [Coord] -> [Coord]
+spiderSteps 3 coord _ _ = [coord]
+spiderSteps n (x, y) board passed = collectUp ++ collectUpLeft ++ collectUpRight ++
+                                    collectDown ++ collectDownLeft ++ collectDownRight
+  where
+    up = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y+2) board) == []    -- пустая ли верхняя клетка
+    upLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y+1) board) == []    -- пустая ли верхняя левая клетка
+    upRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y+1) board) == []    -- пустая ли верхняя правая клетка
+    down = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y-2) board) == []    -- пустая ли нижняя клетка
+    downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
+    downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
+    
+    collectUp = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) passed)       -- собрать ходы сверху
+                    then spiderSteps (n+1) (x, y+2) board ((x, y+2):passed) else []
+    collectUpLeft = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) passed)       -- собрать ходы сверху слева
+                    then spiderSteps (n+1) (x-1, y+1) board ((x-1, y+1):passed) else []
+    collectUpRight = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) passed)       -- собрать ходы сверху справа
+                    then spiderSteps (n+1) (x+1, y+1) board ((x+1, y+1):passed) else []
+    collectDown = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) passed)       -- собрать ходы снизу
+                    then spiderSteps (n+1) (x, y-2) board ((x, y-2):passed) else []
+    collectDownLeft = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) passed)       -- собрать ходы снизу слева
+                    then spiderSteps (n+1) (x-1, y-1) board ((x-1, y-1):passed) else []
+    collectDownRight = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) passed)       -- собрать ходы снизу справа
+                    then spiderSteps (n+1) (x+1, y-1) board ((x+1, y-1):passed) else []
 
 
 -- =========================================
