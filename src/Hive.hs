@@ -17,9 +17,12 @@ runHive = do
     bgColor = white   -- цвет фона
     fps     = 10      -- кол-во кадров в секунду
 
+
 -- =========================================
 -- Модель игры
 -- =========================================
+
+
 -- | Насекомые
 data Insect = Queen | Spider | Beetle | Hopper | Ant
   deriving (Show, Eq, Ord)
@@ -32,8 +35,6 @@ type Piece = (Player, Insect, Picture)
 
 -- | Клетка может содержать несколько фишек
 type Cell = [Piece]
-
-
 
 -- | Поле
 type Board = Map Coord Cell
@@ -65,9 +66,11 @@ data Game = Game
   , gameStepBeige :: Step -- Номер хода бежевого игрока 
   }
 
+  
 -- =========================================
 -- Инициализация
 -- =========================================
+
 
 -- | Начальное состояние игры
 initGame :: IO Game
@@ -280,8 +283,9 @@ endingText Tie = "It's a Tie:)"
 endingText (Win Black) = "Black Team Won"
 endingText (Win Beige) = "Beige Team Won"
 
+
 -- =========================================
--- Обработка событий
+-- Перемещение фишек
 -- =========================================
 
 
@@ -375,6 +379,12 @@ makeMove _ game = game    -- это просто так, чтобы компил
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
 
+
+-- =========================================
+-- Общие функции для определения возможных ходов
+-- =========================================
+
+
 -- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
 possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
@@ -418,22 +428,13 @@ queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1)
   ||  (a,b) == (x,y-2)
   ||  (a,b) == (x-1,y-1)
   ||  (a,b) == (x+1,y-1)
-   ) 
-
--- на вход поле и список ключей выдает, поле с клетками   по данным ключам 
-keysToBoard :: [Coord] -> Board -> Board 
-keysToBoard [] _ = Map.empty
-keysToBoard (point: xs) board 
-  | Map.toList board == [] = Map.empty
-  | Map.member point board = Map.insert point listForPoint (keysToBoard xs board)
-  | otherwise = keysToBoard xs board 
-  where 
-   listForPoint = maybePiecetoPiece (Map.lookup point board)
+   )
 
 
-maybePiecetoPiece :: Maybe Cell -> Cell
-maybePiecetoPiece (Just l) = l
-maybePiecetoPiece Nothing = []
+-- =========================================
+-- Все, что относится к проверке на неразрывность
+-- =========================================
+
 
 -- | Только ходы, не разрывающие улья
 notTearingMoves :: Board -> [Coord] -> [Coord]
@@ -483,6 +484,12 @@ checkForPieces coord@(x, y) board accCells
           | otherwise = False
             where n = numberOfPieces
 
+
+-- =========================================
+-- Все, что относится к муравью
+-- =========================================
+
+
 -- | Возможные ходы для муравья
 antMoves :: Coord -> Board -> [Coord]
 antMoves (x, y) board = delete (x, y) $ collectAntMoves (x, y) board []
@@ -499,18 +506,39 @@ collectAntMoves (x, y) board accumulator = collectUp $ collectUpLeft $ collectUp
     downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
     downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
     
-    collectUp acc = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)
+    collectUp acc = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)       -- собрать ходы сверху
                     then collectAntMoves (x, y+2) board ((x, y+2):acc) else acc
-    collectUpLeft acc = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)
+    collectUpLeft acc = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)       -- собрать ходы сверху слева
                     then collectAntMoves (x-1, y+1) board ((x-1, y+1):acc) else acc
-    collectUpRight acc = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)
+    collectUpRight acc = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)       -- собрать ходы сверху справа
                     then collectAntMoves (x+1, y+1) board ((x+1, y+1):acc) else acc
-    collectDown acc = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)
+    collectDown acc = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)       -- собрать ходы снизу
                     then collectAntMoves (x, y-2) board ((x, y-2):acc) else acc
-    collectDownLeft acc = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)
+    collectDownLeft acc = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)       -- собрать ходы снизу слева
                     then collectAntMoves (x-1, y-1) board ((x-1, y-1):acc) else acc
-    collectDownRight acc = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)
+    collectDownRight acc = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)       -- собрать ходы снизу справа
                     then collectAntMoves (x+1, y-1) board ((x+1, y-1):acc) else acc
+
+
+-- =========================================
+-- Все, что относится к кузнечику
+-- =========================================
+
+
+-- на вход поле и список ключей выдает, поле с клетками   по данным ключам 
+keysToBoard :: [Coord] -> Board -> Board 
+keysToBoard [] _ = Map.empty
+keysToBoard (point: xs) board 
+  | Map.toList board == [] = Map.empty
+  | Map.member point board = Map.insert point listForPoint (keysToBoard xs board)
+  | otherwise = keysToBoard xs board 
+  where 
+   listForPoint = maybePiecetoPiece (Map.lookup point board)
+
+
+maybePiecetoPiece :: Maybe Cell -> Cell
+maybePiecetoPiece (Just l) = l
+maybePiecetoPiece Nothing = []
 
 -- Кузнечик не передвигается общепринятым способом. Он
 -- перепрыгивает с одного места на другое незанятое место
@@ -573,9 +601,11 @@ for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  |otherwise = []
 for_hopper _ _ _ = []
 
--- | Установить gameEnding в Game, если игра завершилась
-checkWinner :: Game -> Game
-checkWinner game = game{gameEnding = winner (gameBoard game)}
+
+-- =========================================
+-- По мелочи
+-- =========================================
+
 
 -- | Сменить текущего игрока
 switchPlayer :: Player -> Player
@@ -585,6 +615,16 @@ switchPlayer Black = Beige
 -- | Обновление игры.
 updateGame :: Float -> Game -> Game
 updateGame _ = id
+
+
+-- =========================================
+-- Все, что относится к определению победителя
+-- =========================================
+
+
+-- | Установить gameEnding в Game, если игра завершилась
+checkWinner :: Game -> Game
+checkWinner game = game{gameEnding = winner (gameBoard game)}
 
 -- | Определение победителя
 winner :: Board -> Maybe Ending
@@ -620,6 +660,12 @@ beeIsLocked board (x, y) = isNotEmpty (x-1, y+1) && isNotEmpty (x+1, y+1) &&
                            isNotEmpty (x, y+2) && isNotEmpty (x, y-2)
     where
       isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+
+
+-- =========================================
+-- Все, что относится к сдвигу массива фишек
+-- =========================================
+
 
 -- | Это просто для вызова shiftBoard,
 -- потому что делать shiftBoard еще больше я замучаюсь
