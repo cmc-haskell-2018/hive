@@ -326,11 +326,12 @@ possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = [(x,y)]
-  | flag == False && ins == Queen  = (x,y) : queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
+  | flag == False && ins == Queen  = (x,y) : check (queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells))) board 
   | flag == False && ins == Beetle = (x,y) : queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | flag == False && ins == Hopper = (x,y) : delStartCells (hopper_cells (x,y) board) 
   | otherwise =  delStartCells (map fst $ Map.toList only_free_cells)
  where
+  def = Map.insert (x,y) [] Map.empty   
   flag = x < -(n+1) || x > n+1
   n = numberOfPieces
   only_free_cells = Map.filterWithKey (\_ val -> val == []) board
@@ -339,12 +340,17 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
 -- | Может ли двигаться данная фишка, true - не может двигаться,false иначе
 poss_move :: Board -> Coord -> Bool
 poss_move board (x, y)    
-  | sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1), isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] == 5   = True
+  | sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1), isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] >= 5   = True
   | otherwise =  check1(x,y) || check2(x,y)  -- проверка на расположение 3 фишек вокруг данной,всего 2 конфигурации                         
  where
   isNotEmpty (i, j) = if Map.lookup (i, j) board /= (Just []) then 1 else 0
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
+
+-- | проверить все координаты на то что в них можно ставить фишку
+check :: [Coord] -> Board -> [Coord]
+check [] board = []
+check (x:xs) board = if poss_move  board x then check xs board  else x : check xs board 
 
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
@@ -388,16 +394,15 @@ maybePiecetoPiece Nothing = []
 hopper_cells :: Coord -> Board-> [Coord]
 hopper_cells (x,y) board 
   | l == [] = []
-  -- ищем в каждом направлении первые n непустых клеток
+  -- ищем в каждом направлении первую непустую клетку
   -- фльтром получаем из данного списка клеток  - l координаты клеток в одном из 6 направлений, 
-  -- после по этим координатам достаем поле(уже вместе со списками насекомых)
   -- dir1, dir3, dir4 идут по порядку следования, dir2 dir5 dir6 наоборот, поэтому делаем reverse 
-  | otherwise =  delOneCoord (x,y+2) (takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir1 )l) board) False) ++
-                 delOneCoord (x,y-2) (takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir2 )l) board) True)  ++
-                 delOneCoord (x+1,y+1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir3 )l) board) False) ++ 
-                 delOneCoord (x+1,y-1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir4 )l) board) False) ++
-                 delOneCoord (x-1,y+1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir5 )l) board) True) ++
-                 delOneCoord (x-1,y-1)(takeWhileMap (keysToBoard (filter (\(a,b) -> elem (a,b) dir6 )l) board) True) 
+  | otherwise =  delOneCoord (x,y+2) (takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir1 )l) board) False) ++
+                 delOneCoord (x,y-2) (takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir2 )l) board) True)  ++
+                 delOneCoord (x+1,y+1)(takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir3 )l) board) False) ++ 
+                 delOneCoord (x+1,y-1)(takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir4 )l) board) False) ++
+                 delOneCoord (x-1,y+1)(takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir5 )l) board) True) ++
+                 delOneCoord (x-1,y-1)(takeCell (keysToBoard (filter (\(a,b) -> elem (a,b) dir6 )l) board) True) 
   where
   l = map fst $ Map.toList board
   dir1 = (for_hopper 1 (x,y) (maxmin l)) --направление 1(direction)
@@ -419,12 +424,12 @@ maxmin [] = []
 maxmin l  = [  ( maximum (map fst $ l), maximum (map snd $ l) ) , ( minimum (map fst $ l),minimum (map snd $ l))]  
  
  -- Возвращает свободные клетки до первой занятой
-takeWhileMap :: Board -> Bool->[Coord] 
-takeWhileMap board flag  
+takeCell :: Board -> Bool->[Coord] 
+takeCell board flag  
   | l == [] = []
-  | snd head_l == [] =  fst head_l : (takeWhileMap tail_map flag)
-  | otherwise = [] 
-  where 
+  | snd head_l == [] =  [fst head_l] 
+  | otherwise =  takeCell tail_map flag
+  where
     l = if flag then reverse (Map.toList board) else (Map.toList board) 
     head_l = head l 
     tail_map = Map.fromList (tail l)
@@ -435,12 +440,13 @@ for_hopper _ _ [] = []
 for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  | n > 6 || n < 1 = [] 
  |n == 1 =  zip [x,x ..] [y+2, y+4 .. max_y] --список координат y через 2 позиции y > 0
- |n == 2 =  zip [x,x ..] [y-2, y-4 .. min_y] --списко координат y через 2 позиции y < 0
+ |n == 2 =  zip [x,x ..] [y-2, y-4 .. min_y] --список координат y через 2 позиции y < 0
  |n == 3 =  zip [x+1,x+2 .. max_x] [y+1,y+2 .. max_y]
  |n == 4 =  zip [x+1,x+2 .. max_x] [y-1,y-2 .. min_y]
  |n == 5 =  zip [x-1,x-2 .. min_x] [y+1,y+2 .. max_y]
  |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
  |otherwise = []
+
 
 
 -- | Установить gameEnding в Game, если игра завершилась
