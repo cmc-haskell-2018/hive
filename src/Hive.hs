@@ -3,7 +3,7 @@ module Hive where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
---import Data.List
+import Data.List
 import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Map as Map
@@ -371,7 +371,6 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
          | otherwise = succ x
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
 
-
 -- | Поставить фишку
 putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece = Map.adjust (piece:)
@@ -383,7 +382,8 @@ possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигае
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = []
   | flag == False && ins == Queen  = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
   | flag == False && ins == Beetle = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
-  | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board 
+  | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
+  | flag == False && ins == Ant = antMoves (x, y) board
   | otherwise = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
  where
   flag = x < -(n+1) || x > n+1
@@ -419,7 +419,6 @@ queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1)
   ||  (a,b) == (x-1,y-1)
   ||  (a,b) == (x+1,y-1)
    ) 
-
 
 -- на вход поле и список ключей выдает, поле с клетками   по данным ключам 
 keysToBoard :: [Coord] -> Board -> Board 
@@ -483,7 +482,36 @@ checkForPieces coord@(x, y) board accCells
           | x + y >= 2 * (n+1) = True
           | otherwise = False
             where n = numberOfPieces
-  
+
+-- | Возможные ходы для муравья
+antMoves :: Coord -> Board -> [Coord]
+antMoves (x, y) board = delete (x, y) $ collectAntMoves (x, y) board []
+
+-- | Рекурсивно собираем возможные ходы для муравья
+collectAntMoves :: Coord -> Board -> [Coord] -> [Coord]
+collectAntMoves (x, y) board accumulator = collectUp $ collectUpLeft $ collectUpRight $
+                                           collectDown $ collectDownLeft $ collectDownRight accumulator
+  where
+    up = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y+2) board) == []    -- пустая ли верхняя клетка
+    upLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y+1) board) == []    -- пустая ли верхняя левая клетка
+    upRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y+1) board) == []    -- пустая ли верхняя правая клетка
+    down = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y-2) board) == []    -- пустая ли нижняя клетка
+    downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
+    downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
+    
+    collectUp acc = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)
+                    then collectAntMoves (x, y+2) board ((x, y+2):acc) else acc
+    collectUpLeft acc = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)
+                    then collectAntMoves (x-1, y+1) board ((x-1, y+1):acc) else acc
+    collectUpRight acc = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)
+                    then collectAntMoves (x+1, y+1) board ((x+1, y+1):acc) else acc
+    collectDown acc = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)
+                    then collectAntMoves (x, y-2) board ((x, y-2):acc) else acc
+    collectDownLeft acc = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)
+                    then collectAntMoves (x-1, y-1) board ((x-1, y-1):acc) else acc
+    collectDownRight acc = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)
+                    then collectAntMoves (x+1, y-1) board ((x+1, y-1):acc) else acc
+
 -- Кузнечик не передвигается общепринятым способом. Он
 -- перепрыгивает с одного места на другое незанятое место
 -- через фишки улья по прямой линии.Oн должен перепрыгивать как минимум
