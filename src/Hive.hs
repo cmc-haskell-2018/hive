@@ -149,7 +149,7 @@ loadPieceImage s = fmap (translate 0 0 . scale k k)
   (maybePicToPic <$> (loadJuicyPNG path))
   where
     path = "images/" ++ s ++ ".png"
-    k = 6 / 5 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
+    k = 5 / 4 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
 
     -- | Переводит Maybe Picture в Picture
     maybePicToPic :: Maybe Picture -> Picture
@@ -178,12 +178,12 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 drawGame :: Game -> Picture
 drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
             , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack} = pictures
-  [ drawAllCells board
-  , drawAllInsects board
+  [ --drawAllCells board,
+    drawAllInsects board
   , drawEnding maybeEnding
   , drawMovable movable
   , drawMove maybeEnding player
-  , drawDemand stepBeige stepBlack player maybeEnding
+  , drawDemand stepBeige stepBlack player maybeEnding movable
   , drawPossibleMoves movable board]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
@@ -193,7 +193,7 @@ drawPossibleMoves (Just movable) board = drawPossible $ possibleMoves movable bo
 
 -- | Рисуем возможные ходы
 drawPossible :: [Coord] -> Picture
-drawPossible coords = color green $ scale cx cy $ pictures $ map drawCell coords
+drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell coords
   where
   cx = fromIntegral cellSizeX
   cy = fromIntegral cellSizeY
@@ -221,10 +221,10 @@ drawMove Nothing player = placeText $ text $ (show player) ++ " team's move"
         scale 0.3 0.3
 
 -- | Проверяем, нужно ли взять пчелу
-drawDemand :: Step -> Step -> Player -> Maybe Ending -> Picture
-drawDemand Fours _ Beige Nothing = writeDemand
-drawDemand _ Fours Black Nothing = writeDemand
-drawDemand _ _ _ _ = blank
+drawDemand :: Step -> Step -> Player -> Maybe Ending -> Maybe Movable -> Picture
+drawDemand Fours _ Beige Nothing Nothing = writeDemand
+drawDemand _ Fours Black Nothing Nothing = writeDemand
+drawDemand _ _ _ _ _ = blank
 
 -- | Пишем, что нужно взять пчелу
 writeDemand :: Picture
@@ -304,17 +304,8 @@ handleGame _ game = game
 
 -- | Положить фишку на место
 putPieceBack :: Game -> Game
-putPieceBack game@Game{gameMovable = Just (coord, piece@(player,insect, _)), gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
-  = game{gameMovable = Nothing, gameBoard = putInsect piece coord board, gameStepBeige = prevBeigeStep, gameStepBlack = prevBlackStep}
-    where
-      prevBlackStep :: Step
-      prevBlackStep
-        | player == Black && insect == Queen && stepBlack == Other = Fours
-        | otherwise = stepBlack
-      prevBeigeStep :: Step
-      prevBeigeStep
-        | player == Beige && insect == Queen && stepBeige == Other = Fours
-        | otherwise = stepBeige    
+putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
+  = game{gameMovable = Nothing, gameBoard = putInsect piece coord board}  
 putPieceBack game = game    -- чтобы компилятор не ругался
 
 -- | Взять фишку с координатами под мышкой, если возможно
@@ -323,8 +314,7 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige
   | pieces == [] = game
   | pieceColor top /= player = game
 --  | possibleMoves movable (deleteInsect (i, j) board) == [] = game
-  | checkQueenStep movable = newGame{ gameStepBeige = if player == Beige then Other else stepBeige
-                                    , gameStepBlack = if player == Black then Other else stepBlack}
+  | checkQueenStep movable = newGame
   | step == Fours = game
   | otherwise = newGame
   where
@@ -379,8 +369,10 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
    | otherwise = game    -- если выбранный ход невозможен
      where 
        nextStep :: Step -> Step
-       nextStep x | x == Other = Other
-                  | otherwise = succ x
+       nextStep x 
+         |(\(_,(_,ins,_)) -> ins) movable == Queen = Other
+         | x == Other = Other
+         | otherwise = succ x
 makeMove _ game = game    -- это просто так, чтобы компилятор не ругался
 
 
