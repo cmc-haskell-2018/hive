@@ -500,24 +500,32 @@ spiderSteps 3 coord _ _ = [coord]
 spiderSteps n (x, y) board passed = collectUp ++ collectUpLeft ++ collectUpRight ++
                                     collectDown ++ collectDownLeft ++ collectDownRight
   where
-    up = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y+2) board) == []    -- пустая ли верхняя клетка
-    upLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y+1) board) == []    -- пустая ли верхняя левая клетка
-    upRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y+1) board) == []    -- пустая ли верхняя правая клетка
-    down = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y-2) board) == []    -- пустая ли нижняя клетка
-    downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
-    downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
+    isEmpty c = fromMaybe [(Black, Queen, blank)] c == []    -- пустая ли клетка
+    isFull c = fromMaybe [] c /= []    -- заполнена ли клетка
+    up = Map.lookup (x, y+2) board    -- верхняя клетка
+    upLeft = Map.lookup (x-1, y+1) board    -- верхняя левая клетка
+    upRight = Map.lookup (x+1, y+1) board    -- верхняя правая клетка
+    down = Map.lookup (x, y-2) board    -- нижняя клетка
+    downLeft = Map.lookup (x-1, y-1) board    -- нижняя левая клетка
+    downRight = Map.lookup (x+1, y-1) board    -- нижняя правая клетка
     
-    collectUp = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) passed)       -- собрать ходы сверху
+    collectUp = if isEmpty up && (isEmpty upLeft && isFull upRight || isFull upLeft && isEmpty upRight)
+                        && doesNotTear (x, y+2) board && not (elem (x, y+2) passed)       -- собрать ходы сверху
                     then spiderSteps (n+1) (x, y+2) board ((x, y+2):passed) else []
-    collectUpLeft = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) passed)       -- собрать ходы сверху слева
+    collectUpLeft = if isEmpty upLeft && (isEmpty up && isFull downLeft || isEmpty downLeft && isFull up)
+                        && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) passed)       -- собрать ходы сверху слева
                     then spiderSteps (n+1) (x-1, y+1) board ((x-1, y+1):passed) else []
-    collectUpRight = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) passed)       -- собрать ходы сверху справа
+    collectUpRight = if isEmpty upRight && (isEmpty up && isFull downRight || isEmpty downRight && isFull up) 
+                        && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) passed)       -- собрать ходы сверху справа
                     then spiderSteps (n+1) (x+1, y+1) board ((x+1, y+1):passed) else []
-    collectDown = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) passed)       -- собрать ходы снизу
+    collectDown = if isEmpty down && (isEmpty downLeft && isFull downRight || isEmpty downRight && isFull downLeft)
+                        && doesNotTear (x, y-2) board && not (elem (x, y-2) passed)       -- собрать ходы снизу
                     then spiderSteps (n+1) (x, y-2) board ((x, y-2):passed) else []
-    collectDownLeft = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) passed)       -- собрать ходы снизу слева
+    collectDownLeft = if isEmpty downLeft && (isEmpty upLeft  && isFull down || isEmpty down && isFull upLeft)
+                        && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) passed)       -- собрать ходы снизу слева
                     then spiderSteps (n+1) (x-1, y-1) board ((x-1, y-1):passed) else []
-    collectDownRight = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) passed)       -- собрать ходы снизу справа
+    collectDownRight = if isEmpty downRight && (isEmpty down  && isFull upRight || isEmpty upRight && isFull down)
+                        && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) passed)       -- собрать ходы снизу справа
                     then spiderSteps (n+1) (x+1, y-1) board ((x+1, y-1):passed) else []
 
 
@@ -532,7 +540,7 @@ antMoves (x, y) board = delete (x, y) $ collectAntMoves (x, y) board []
 
 -- | Рекурсивно собираем возможные ходы для муравья
 collectAntMoves :: Coord -> Board -> [Coord] -> [Coord]
-collectAntMoves (x, y) board accumulator = collectUp $ collectUpLeft $ collectUpRight $
+collectAntMoves (x, y) board accumulator = nub $ collectUp $ collectUpLeft $ collectUpRight $
                                            collectDown $ collectDownLeft $ collectDownRight accumulator
   where
     up = fromMaybe [(Black, Queen, blank)] (Map.lookup (x, y+2) board) == []    -- пустая ли верхняя клетка
@@ -542,17 +550,23 @@ collectAntMoves (x, y) board accumulator = collectUp $ collectUpLeft $ collectUp
     downLeft = fromMaybe [(Black, Queen, blank)] (Map.lookup (x-1, y-1) board) == []    -- пустая ли нижняя левая клетка
     downRight = fromMaybe [(Black, Queen, blank)] (Map.lookup (x+1, y-1) board) == []    -- пустая ли нижняя правая клетка
     
-    collectUp acc = if up && (upLeft || upRight) && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)       -- собрать ходы сверху
+    collectUp acc = if up && (upLeft || upRight)
+                        && doesNotTear (x, y+2) board && not (elem (x, y+2) acc)       -- собрать ходы сверху
                     then collectAntMoves (x, y+2) board ((x, y+2):acc) else acc
-    collectUpLeft acc = if upLeft && (up || downLeft) && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)       -- собрать ходы сверху слева
+    collectUpLeft acc = if upLeft && (up || downLeft)
+                        && doesNotTear (x-1, y+1) board && not (elem (x-1, y+1) acc)       -- собрать ходы сверху слева
                     then collectAntMoves (x-1, y+1) board ((x-1, y+1):acc) else acc
-    collectUpRight acc = if upRight && (up || downRight) && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)       -- собрать ходы сверху справа
+    collectUpRight acc = if upRight && (up || downRight)
+                        && doesNotTear (x+1, y+1) board && not (elem (x+1, y+1) acc)       -- собрать ходы сверху справа
                     then collectAntMoves (x+1, y+1) board ((x+1, y+1):acc) else acc
-    collectDown acc = if down && (downLeft || downRight) && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)       -- собрать ходы снизу
+    collectDown acc = if down && (downLeft || downRight)
+                        && doesNotTear (x, y-2) board && not (elem (x, y-2) acc)       -- собрать ходы снизу
                     then collectAntMoves (x, y-2) board ((x, y-2):acc) else acc
-    collectDownLeft acc = if downLeft && (upLeft || down) && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)       -- собрать ходы снизу слева
+    collectDownLeft acc = if downLeft && (upLeft || down)
+                        && doesNotTear (x-1, y-1) board && not (elem (x-1, y-1) acc)       -- собрать ходы снизу слева
                     then collectAntMoves (x-1, y-1) board ((x-1, y-1):acc) else acc
-    collectDownRight acc = if downRight && (down || upRight) && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)       -- собрать ходы снизу справа
+    collectDownRight acc = if downRight && (down || upRight)
+                        && doesNotTear (x+1, y-1) board && not (elem (x+1, y-1) acc)       -- собрать ходы снизу справа
                     then collectAntMoves (x+1, y-1) board ((x+1, y-1):acc) else acc
 
 
