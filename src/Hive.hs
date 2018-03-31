@@ -349,7 +349,7 @@ poss_move board (x, y)
 
 -- | проверить все координаты на то что в них можно ставить фишку
 check :: [Coord] -> Board -> [Coord]
-check [] board = []
+check [] _ = []
 check (x:xs) board = if poss_move  board x then check xs board  else x : check xs board 
 
 -- | удаляет из списка координат стартовые клетки
