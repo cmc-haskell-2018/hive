@@ -342,6 +342,7 @@ poss_move board (x, y)
   | sum [isNotEmpty (x-1, y+1), isNotEmpty (x+1, y+1),isNotEmpty (x-1, y-1) , isNotEmpty (x+1, y-1), isNotEmpty (x, y+2) , isNotEmpty (x, y-2)] == 5   = True
   | otherwise =  check1(x,y) || check2(x,y)  -- проверка на расположение 3 фишек вокруг данной,всего 2 конфигурации                         
  where
+  isNotEmpty :: Coord -> Int
   isNotEmpty (i, j) = if Map.lookup (i, j) board /= (Just []) then 1 else 0
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
@@ -351,7 +352,6 @@ delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
 delStartCells l = filter (\(x,_) -> x >= -(n+1) && x <= n+1 ) l
  where n = numberOfPieces
-
 
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
@@ -441,7 +441,7 @@ for_hopper n (x,y) [(max_x,max_y),(min_x,min_y)]
  |n == 5 =  zip [x-1,x-2 .. min_x] [y+1,y+2 .. max_y]
  |n == 6 =  zip [x-1,x-2 .. min_x] [y-1,y-2 .. min_y]
  |otherwise = []
-
+for_hopper _ _ _ = []
 
 -- | Установить gameEnding в Game, если игра завершилась
 checkWinner :: Game -> Game
