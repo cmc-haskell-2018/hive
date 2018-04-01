@@ -390,8 +390,8 @@ possibleMoves :: Movable -> Board -> [Coord]
 possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
                                        -- в случае старта должно возвратить список всех клеток поля             
   | is_not_possible == True && ins /= Hopper && ins /= Beetle && flag == False  = []
-  | flag == False && ins == Queen  = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList only_free_cells)) 
-  | flag == False && ins == Beetle = notTearingMoves board $ queen_beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
+  | flag == False && ins == Queen  = notTearingMoves board $ delStartCells (queen_cells (x,y) board) 
+  | flag == False && ins == Beetle = notTearingMoves board $ beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | flag == False && ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
   | flag == False && ins == Ant = antMoves (x, y) board
   | flag == False && ins == Spider = spiderMoves (x, y) board
@@ -413,11 +413,6 @@ poss_move board (x, y)
   check1 (i,j) = if  Map.lookup (i, j+2) board /= (Just []) && Map.lookup (i-1, j-1) board /= (Just []) && Map.lookup (i+1, j-1) board /= (Just []) then True else False
   check2 (i,j) = if  Map.lookup (i, j-2) board /= (Just []) && Map.lookup (i-1, j+1) board /= (Just []) && Map.lookup (i+1, j+1) board /= (Just []) then True else False  
 
--- -- | проверить все координаты на то что в них можно ставить фишку(для пчеломатки)
--- check :: [Coord] -> Board -> [Coord]
--- check [] _ = []
--- check (x:xs) board = if poss_move  board x then check xs board  else x : check xs board 
-
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
 delStartCells [] = []
@@ -427,8 +422,9 @@ delStartCells l = filter (\(x,_) -> x >= -(n+1) && x <= n+1 ) l
 -- | координаты для королевы и жука
 -- |Пчеломатка может перемещаться всего на 1 "клетку". Жук, также как и пчеломатка, может перемещаться только на 1 позицию за
 -- |ход. Но в отличии от всех остальных фишек, он может перемещать поверх других фишек.
-queen_beetle_cells :: Coord -> [Coord] -> [Coord]
-queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1) 
+
+beetle_cells :: Coord -> [Coord] -> [Coord]
+beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1) 
   ||  (a,b) == (x+1,y+1)
   ||  (a,b) == (x,y+2)
   ||  (a,b) == (x,y-2)
@@ -436,6 +432,19 @@ queen_beetle_cells (x,y) = filter (\(a,b) -> (a,b) == (x-1, y+1)
   ||  (a,b) == (x+1,y-1)
    )
 
+queen_cells :: Coord -> Board -> [Coord]
+queen_cells (x,y) board 
+  | board == Map.empty = []
+  | otherwise = map fst $ Map.toList only_free_cells
+ where 
+    l = coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coord6
+    only_free_cells = Map.filter (\val -> val == []) (keysToBoard l board )
+    coord1 = if Map.lookup (x, y+2)   board ==  (Just []) && Map.lookup (x+1, y+1)board /= (Just []) && Map.lookup (x-1, y+1)board/= (Just []) then [] else [(x,y+2)] 
+    coord2 = if Map.lookup (x+1, y+1) board ==  (Just []) && Map.lookup (x, y+2)  board /= (Just []) && Map.lookup (x+1, y-1)board/= (Just []) then [] else [(x+1,y+1)]
+    coord3 = if Map.lookup (x+1, y-1) board ==  (Just []) && Map.lookup (x+1, y+1)board /= (Just []) && Map.lookup (x, y-2)  board/= (Just []) then [] else [(x+1,y-1)]
+    coord4 = if Map.lookup (x, y-2)   board ==  (Just []) && Map.lookup (x+1, y-1)board /= (Just []) && Map.lookup (x-1, y-1)board/= (Just []) then [] else [(x,y-2)]
+    coord5 = if Map.lookup (x-1, y-1) board ==  (Just []) && Map.lookup (x, y-2)  board /= (Just []) && Map.lookup (x-1, y+1)board/= (Just []) then [] else [(x-1,y-1)] 
+    coord6 = if Map.lookup (x-1, y+1) board ==  (Just []) && Map.lookup (x-1, y-1)board /= (Just []) && Map.lookup (x, y+2)  board/= (Just []) then [] else [(x-1,y+1)]
 
 -- =========================================
 -- Все, что относится к проверке на неразрывность
