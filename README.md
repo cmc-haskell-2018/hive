@@ -30,7 +30,7 @@ stack test
 ```
 stack ghci
 ```
-![Поле](https://github.com/cmc-haskell-2018/hive/edit/master/Поле.PNG)
+![Поле](Поле.PNG)
 
 ## Куда тыкать, чтобы заработало
 
