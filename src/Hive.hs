@@ -307,33 +307,35 @@ putPieceBack :: Game -> Game
 putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
   = game{gameMovable = Nothing, gameBoard = putInsect piece coord board}  
 putPieceBack game = game    -- чтобы компилятор не ругался
+
 -- | Определить клетку, в которую мы направляем мышкой
-getCell :: Point -> Coord -> Coord
-getCell (xx, yy) (ii, jj) -- = if ((i+j) mod 2) == 0 then (i,j) else
+getCell :: Point -> Coord
+getCell (xx, yy) -- = if ((i+j) mod 2) == 0 then (i,j) else
   | (mod (ii + jj)  2) == 0 = (ii, jj)
   | (y < ((x * (-3)) + j + (3 * i) -1)) && (y > ((3 * x) + j - (3 * i) +1)) = ((ii - 1), jj)
   | (y < (( 3 * x) + j - (3 * i) - 1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = ((ii + 1), jj)
   | y > j  = (ii, (jj + 1))
-  | y < j  = (ii, (jj - 1))
-  | otherwise = (ii, jj)
+  | otherwise = (ii, (jj - 1))
   where
-    i = fromIntegral ii
-    j = fromIntegral jj
     x =(xx / fromIntegral cellSizeX)
     y =(yy / fromIntegral cellSizeY)
+    ii = round x
+    jj = round y
+    i = fromIntegral ii
+    j = fromIntegral jj
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game
   | pieceColor top /= player = game
---  | possibleMoves movable (deleteInsect (i, j) board) == [] = game
+--  | possibleMoves movable (deleteInsect coord board) == [] = game
   | checkQueenStep movable = newGame
   | step == Fours = game
   | otherwise = newGame
   where
     newGame = Game
-      { gameBoard = deleteInsect (getCell (x, y) (i, j)) board
+      { gameBoard = deleteInsect coord board
       , gamePlayer = player
       , gameMovable = Just movable
       , gameEnding = Nothing
@@ -341,11 +343,10 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige
       , gameStepBeige = stepBeige
       }
     step = if player == Black then stepBlack else stepBeige
-    i = round (x / fromIntegral cellSizeX)
-    j = round (y / fromIntegral cellSizeY)
-    pieces = fromMaybe [] $ Map.lookup (i, j) board    -- список фишек в клетке с нужными координатами
+    coord = getCell (x, y)
+    pieces = fromMaybe [] $ Map.lookup coord board    -- список фишек в клетке с нужными координатами
     top = head pieces    -- самая верхняя фишка в списке
-    movable = ((i, j), top)
+    movable = (coord, top)
     pieceColor (p, _, _) = p
     checkQueenStep :: Movable -> Bool
     checkQueenStep ( (_,_), (_,ins,_)) = ins == Queen       -- взяли пчелу
@@ -361,12 +362,10 @@ deleteInsect (i, j) board
 -- | Получить клетку под мышкой (в которую хотим поставить фишку).
 mouseToCell :: Point -> Board -> Maybe Coord
 mouseToCell (x, y) board
-  | isNothing l = Nothing
-  | otherwise = Just (getCell (x, y) (i, j))
+  | Map.lookup coord board == Nothing = Nothing
+  | otherwise = Just coord
   where
-    i = round (x / fromIntegral cellSizeX)
-    j = round (y / fromIntegral cellSizeY)
-    l = Map.lookup (getCell (x, y) (i, j)) board
+    coord = getCell (x, y)
 
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
