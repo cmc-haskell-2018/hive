@@ -313,8 +313,8 @@ getCell (xx, yy) (ii, jj) -- = if ((i+j) mod 2) == 0 then (i,j) else
   | (mod (ii + jj)  2) == 0 = (ii, jj)
   | (y < ((x * (-3)) + j + (3 * i) -1)) && (y > ((3 * x) + j - (3 * i) +1)) = ((ii - 1), jj)
   | (y < (( 3 * x) + j - (3 * i) - 1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = ((ii + 1), jj)
-  | (y > j) && (y > (( 3 * x) + j - (3 * i) - 1)) && (y > ((x * (-3)) + j + (3 * i) -1))  = (ii, (jj + 1))
-  | (y < j) && (y < ((3 * x) + j - (3 * i) +1)) && (y < (( (-3) * x) +j + (3 * i) +1)) = (ii, (jj - 1))
+  | y > j  = (ii, (jj + 1))
+  | y < j  = (ii, (jj - 1))
   | otherwise = (ii, jj)
   where
     i = fromIntegral ii
