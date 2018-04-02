@@ -309,25 +309,19 @@ putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
 putPieceBack game = game    -- чтобы компилятор не ругался
 -- | Определить клетку, в которую мы направляем мышкой
 getCell :: Point -> Coord -> Coord
-getCell (x, y) (ii, jj) -- = if ((i+j) mod 2) == 0 then (i,j) else
+getCell (xx, yy) (ii, jj) -- = if ((i+j) mod 2) == 0 then (i,j) else
   | (mod (ii + jj)  2) == 0 = (ii, jj)
   | (y < ((x * (-3)) + j + (3 * i) -1)) && (y > ((3 * x) + j - (3 * i) +1)) = ((ii - 1), jj)
   | (y < (( 3 * x) + j - (3 * i) - 1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = ((ii + 1), jj)
   | (y > j) && (y > (( 3 * x) + j - (3 * i) - 1)) && (y > ((x * (-3)) + j + (3 * i) -1))  = (ii, (jj + 1))
-  | (y < j) && (y < ((3 * x) + j - (3 * i) +1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = (ii, (jj - 1))
+  | (y < j) && (y < ((3 * x) + j - (3 * i) +1)) && (y < (( (-3) * x) +j + (3 * i) +1)) = (ii, (jj - 1))
   | otherwise = (ii, jj)
   where
     i = fromIntegral ii
     j = fromIntegral jj
+    x =(xx / fromIntegral cellSizeX)
+    y =(yy / fromIntegral cellSizeY)
 
--- | версия через иф, предполагал, что может что с гардами не так
-getCell1 :: Point -> Coord -> Coord
-getCell1 (x, y) (i, j) = if (mod (i+j) 2) == 0 then (i,j) else
-  if (y < ((x * (-3)) + fromIntegral j + (3 * fromIntegral i) -1)) then  
-    if (y > ((3 * x) + fromIntegral j - (3 * fromIntegral i) +1)) then ((i - 1), j) else (i, (j - 1))
-  else if (y < (( 3 * x) + fromIntegral j - (3 * fromIntegral i) - 1)) then
-    if (y > (( (-3) * x) + fromIntegral j + (3 * fromIntegral i) +1)) then ((i + 1), j) else (i, (j-1))
-  else if (y > fromIntegral j) then (i, (j + 1)) else (i, (j - 1))
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
