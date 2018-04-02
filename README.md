@@ -30,6 +30,8 @@ stack test
 ```
 stack ghci
 ```
+![Поле]https://github.com/cmc-haskell-2018/hive/edit/master/Поле.PNG)
+
 ## Куда тыкать, чтобы заработало
 
 Правила игры можно прочитать здесь: https://tesera.ru/images/items/24933/Hive_ru.pdf
