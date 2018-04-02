@@ -175,7 +175,7 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 
 -- | Рисуем всё
 drawGame :: Game -> Picture
-drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
+drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
             , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack} = pictures
   [ --drawAllCells board,
     drawAllInsects board
@@ -183,12 +183,12 @@ drawGame Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
   , drawMovable movable
   , drawMove maybeEnding player
   , drawDemand stepBeige stepBlack player maybeEnding movable
-  , drawPossibleMoves movable board]
+  , drawPossibleMoves game]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
-drawPossibleMoves :: Maybe Movable -> Board -> Picture
-drawPossibleMoves Nothing _ = blank
-drawPossibleMoves (Just movable) board = drawPossible $ possibleMoves movable board
+drawPossibleMoves :: Game -> Picture
+drawPossibleMoves Game{gameMovable = Nothing} = blank
+drawPossibleMoves game = drawPossible $ possibleMoves game
 
 -- | Рисуем возможные ходы
 drawPossible :: [Coord] -> Picture
@@ -234,7 +234,7 @@ writeDemand = placeText $ text "Take the Queen bee"
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
-drawAllCells board = color  black $ scale cx cy $ pictures $ map drawCell tl
+drawAllCells board = color  (greyN 0.3) $ scale cx cy $ pictures $ map drawCell tl
   where
     cx = fromIntegral cellSizeX
     cy = fromIntegral cellSizeY
@@ -329,7 +329,6 @@ takePiece :: Point -> Game -> Game
 takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game
   | pieceColor top /= player = game
---  | possibleMoves movable (deleteInsect coord board) == [] = game
   | checkQueenStep movable = newGame
   | step == Fours = game
   | otherwise = newGame
@@ -371,7 +370,7 @@ mouseToCell (x, y) board
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
 makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
-   | (elem (i, j) (possibleMoves movable board)) = Game    -- если выбранный ход возможен
+   | (elem (i, j) (possibleMoves game)) = Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) (i,j) board
      , gameMovable = Nothing
@@ -398,20 +397,22 @@ putInsect piece = Map.adjust (piece:)
 -- =========================================
 
 
--- | Список координат всех допустимых клеток для постановки фишки (В ПРОЦЕССЕ НАПИСАНИЯ)
-possibleMoves :: Movable -> Board -> [Coord]
-possibleMoves ( (x,y), (_,ins,_)) board  -- flag true если мы двигаем фишку из началаьной позиции (со "старта"), иначе false, 
-                                       -- в случае старта должно возвратить список всех клеток поля
-  | isSide = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
+-- | Список координат всех допустимых клеток для постановки фишки
+possibleMoves :: Game -> [Coord]
+possibleMoves Game{gameBoard = board, gameMovable = Just((x,y), (player, ins,_)), gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+  | isSide && step == First = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
+  | isSide = notTouchingPieces (switchPlayer player) board $ notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
   | ins == Queen  = notTearingMoves board $ delStartCells (queen_cells (x,y) board) 
   | ins == Beetle = notTearingMoves board $ beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
   | ins == Ant = antMoves (x, y) board
   | otherwise = spiderMoves (x, y) board
  where
+  step = if player == Beige then stepBeige else stepBlack
   isSide = x < -(n+1) || x > n+1
   n = numberOfPieces
   only_free_cells = Map.filter (\val -> val == []) board
+possibleMoves _ = []
 
 -- | удаляет из списка координат стартовые клетки
 delStartCells :: [Coord] -> [Coord]
@@ -445,6 +446,20 @@ queen_cells (x,y) board
     coord4 = if Map.lookup (x, y-2)   board ==  (Just []) && Map.lookup (x+1, y-1)board /= (Just []) && Map.lookup (x-1, y-1)board/= (Just []) then [] else [(x,y-2)]
     coord5 = if Map.lookup (x-1, y-1) board ==  (Just []) && Map.lookup (x, y-2)  board /= (Just []) && Map.lookup (x-1, y+1)board/= (Just []) then [] else [(x-1,y-1)] 
     coord6 = if Map.lookup (x-1, y+1) board ==  (Just []) && Map.lookup (x-1, y-1)board /= (Just []) && Map.lookup (x, y+2)  board/= (Just []) then [] else [(x-1,y+1)]
+    
+-- | Фишки, только что вводимые в игру, не должны касаться фишек другого игрока
+notTouchingPieces :: Player -> Board -> [Coord] -> [Coord]
+notTouchingPieces player board = filter (\coord -> doesNotTouch coord player board)
+
+-- | Проверить, что фишка не касается враждебной
+doesNotTouch :: Coord -> Player -> Board -> Bool
+doesNotTouch (i, j) player board = Map.filterWithKey (\(x, y) pieces -> (x==i&&y==j+2||x==i&&y==j-2||x==i+1&&y==j+1||x==i+1&&y==j-1||
+                                                                         x==i-1&&y==j+1||x==i-1&&y==j-1)&& isHostile pieces) board == Map.empty
+  where
+    isHostile :: [Piece] -> Bool
+    isHostile [] = False
+    isHostile ((p,_,_):_) = p == player
+
 
 -- =========================================
 -- Все, что относится к проверке на неразрывность
@@ -506,7 +521,7 @@ checkForPieces coord@(x, y) board accCells
 
 -- | Возможные ходы для паука
 spiderMoves :: Coord -> Board -> [Coord]
-spiderMoves coord board = spiderSteps 0 coord board [coord] 
+spiderMoves coord board = nub $ spiderSteps 0 coord board [coord] 
 
 -- | Рекурсивно собираем возможные ходы паука
 spiderSteps :: Int -> Coord -> Board -> [Coord] -> [Coord]
