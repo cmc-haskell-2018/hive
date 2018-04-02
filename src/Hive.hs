@@ -402,6 +402,7 @@ possibleMoves :: Game -> [Coord]
 possibleMoves Game{gameBoard = board, gameMovable = Just((x,y), (player, ins,_)), gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | isSide && step == First = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
   | isSide = notTouchingPieces (switchPlayer player) board $ notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
+  | step /= Other = []
   | ins == Queen  = notTearingMoves board $ delStartCells (queen_cells (x,y) board) 
   | ins == Beetle = notTearingMoves board $ beetle_cells (x,y) (delStartCells (map fst $ Map.toList board))
   | ins == Hopper = notTearingMoves board $ hopper_cells (x,y) board
