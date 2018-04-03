@@ -187,15 +187,15 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
 
 -- | Проверяем, нужно ли рисовать возможные ходы
 drawPossibleMoves :: Game -> Picture
-drawPossibleMoves Game{gameBoard = board, gameMovable = Nothing} = blank
+drawPossibleMoves Game{gameMovable = Nothing} = blank
 drawPossibleMoves game = drawPossible (gameBoard game) $ possibleMoves game
 
 -- | Рисуем возможные ходы
 drawPossible :: Board -> [Coord] -> Picture
 drawPossible board coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell coords
   where
-  cx = fromIntegral (newCellsizeX board)
-  cy = fromIntegral (newCellsizeY (newCellsizeX board))
+  cx = fromIntegral (newCellSizeX board)
+  cy = fromIntegral (newCellSizeY (newCellSizeX board))
 
 -- | Рисуем передвигаемую фишку и соответствующий текст
 drawMovable :: Maybe Movable -> Picture
@@ -266,8 +266,8 @@ drawInsect _ (_, [])  = blank
 drawInsect board ((x, y), ((_, _, pic):_)) =
   translate kx ky pic
   where
-    kx = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellsizeX board) * x)
-    ky = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellsizeY (newCellsizeX board)) * x)
+    kx = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellSizeX board) * x)
+    ky = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellSizeY (newCellSizeX board)) * y)
 
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
@@ -317,8 +317,8 @@ getCell (xx, yy) board -- = if ((i+j) mod 2) == 0 then (i,j) else
   | y > j  = (ii, (jj + 1))
   | otherwise = (ii, (jj - 1))
   where
-    x = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (xx / fromIntegral cellSizeX) else (xx / fromIntegral (newCellsizeX board))
-    y = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (yy / fromIntegral cellSizeY) else (yy / fromIntegral (newCellsizeY (newCellsizeX board)))
+    x = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (xx / fromIntegral cellSizeX) else (xx / fromIntegral (newCellSizeX board))
+    y = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (yy / fromIntegral cellSizeY) else (yy / fromIntegral (newCellSizeY (newCellSizeX board)))
     ii = round x
     jj = round y
     i = fromIntegral ii
@@ -817,11 +817,11 @@ borderX :: Int
 borderX = (2 * numberOfPieces) * cellSizeX
 
 -- | Динамически изменяемые размеры фишек на игровом поле
-newCellsizeX :: Board -> Int
-newCellsizeX _ = cellSizeX -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
+newCellSizeX :: Board -> Int
+newCellSizeX _ = cellSizeX -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
 
-newCellsizeY :: Int -> Int
-newCellsizeY cellSize = round ((fromIntegral cellSize) / ( sqrt 3) :: Double)
+newCellSizeY :: Int -> Int
+newCellSizeY cellSize = round ((fromIntegral cellSize) / ( sqrt 3) :: Double)
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
