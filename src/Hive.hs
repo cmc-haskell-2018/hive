@@ -15,7 +15,7 @@ runHive = do
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
-    fps     = 10      -- кол-во кадров в секунду
+    fps     = 0      -- кол-во кадров в секунду
 
 
 -- =========================================
@@ -50,11 +50,11 @@ data Player = Beige | Black
   deriving (Show, Eq, Ord)
 
 -- | Окончание игры
-data Ending = Win Player | Tie
+data Ending = Win Player | Tie deriving (Eq, Show)
 
 -- | Контроль количества шагов
 data Step = First | Second | Third | Fours | Other 
-  deriving (Enum, Eq)
+  deriving (Enum, Eq, Show)
 
 -- | Состояние игры
 data Game = Game
@@ -64,12 +64,24 @@ data Game = Game
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
   , gameStepBlack :: Step -- Номер хода черного игрока 
   , gameStepBeige :: Step -- Номер хода бежевого игрока 
-  }
+  } deriving (Show)
 
   
 -- =========================================
 -- Инициализация
 -- =========================================
+
+--newInitGame :: Game       -- чистая игра
+--newInitGame = Game
+--  { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces [])    -- игровое поле - пусто
+--  , gamePlayer = Beige    -- первый игрок ходит бежевыми
+--  , gameMovable = Nothing    -- фишка пока что не перемещается
+--  , gameEnding = Nothing    -- игра не окончена
+--  , gameStepBlack = First -- первый ход черного
+--  , gameStepBeige = First -- первый ход бежевого
+--  }
+--  where
+--    n = numberOfPieces
 
 
 -- | Начальное состояние игры
@@ -183,7 +195,9 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
   , drawMovable movable
   , drawMove maybeEnding player
   , drawDemand stepBeige stepBlack player maybeEnding movable
-  , drawPossibleMoves game]
+  , drawPossibleMoves game
+  , drawAboutToLose game
+  ]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
 drawPossibleMoves :: Game -> Picture
@@ -282,6 +296,70 @@ endingText :: Ending -> String
 endingText Tie = "It's a Tie:)"
 endingText (Win Black) = "Black Team Won"
 endingText (Win Beige) = "Beige Team Won"
+
+-- | Надпись, если шах
+drawAboutToLose :: Game -> Picture
+drawAboutToLose game
+  | aboutToLose game = placeText $ text "You are about to lose"
+  | otherwise = blank
+  where
+    placeText = (translate (fromIntegral screenWidth / 2 - 460) (fromIntegral screenHeight / 2 - 60)) .
+        scale 0.3 0.3
+
+-- =========================================
+-- Проверить, что команда почти проиграла
+-- =========================================
+
+-- | Шах?
+aboutToLose :: Game -> Bool
+aboutToLose game@Game{gameMovable = Nothing, gameEnding = Nothing, gameBoard = board, gamePlayer = player}
+  | move == (0, 1) = False
+  | otherwise = or $ fmap (checkHostileGame move) options  -- checkHostileGame
+  where
+      filtered = Map.toList $ Map.filter isHostile board
+      options = fmap (createHostileGame game) filtered
+      coordOfBee = beeCoord player board
+      move = fromMaybe (0, 1) $ beeIsAlmostLocked coordOfBee board
+      
+      isHostile :: [Piece] -> Bool
+      isHostile [] = False
+      isHostile ((p,_,_):_) = p /= player
+      
+aboutToLose _ = False
+
+-- | Проверить, что пчела почти заперта. Если да, то вернуть свободную рядом с ней клетку
+beeIsAlmostLocked :: Maybe Coord -> Board -> Maybe Coord
+beeIsAlmostLocked Nothing _ = Nothing
+beeIsAlmostLocked (Just (x, y)) board
+  | up && upLeft && upRight && down && downLeft && downRight = Nothing       -- пчела заперта, этот случай нас не интересует
+  | up && upLeft && upRight && down && downLeft = Just (x+1, y-1)
+  | up && upLeft && upRight && down && downRight = Just (x-1, y-1)
+  | up && upLeft && upRight && downLeft && downRight = Just (x, y-2)
+  | up && upLeft && down && downLeft && downRight = Just (x+1, y+1)
+  | up && upRight && down && downLeft && downRight = Just (x-1, y+1)
+  | upLeft && upRight && down && downLeft && downRight = Just (x, y+2)
+  | otherwise = Nothing
+    where
+      isNotEmpty (i, j) = Map.lookup (i, j) board /= (Just [])
+      upLeft = isNotEmpty (x-1, y+1)
+      upRight = isNotEmpty (x+1, y+1)
+      downLeft = isNotEmpty (x-1, y-1)
+      downRight = isNotEmpty (x+1, y-1)
+      up = isNotEmpty (x, y+2)
+      down = isNotEmpty (x, y-2)
+
+
+-- | Составить игру с поднятой враждебной фишкой
+createHostileGame :: Game -> (Coord, Cell) -> Game
+createHostileGame game@Game{gameBoard = board, gamePlayer = player} (coord, pieces)
+    = game{gamePlayer = switchPlayer player, gameMovable = Just movable, gameBoard = deleteInsect coord board}
+    where
+      movable = (coord, head pieces)
+
+
+-- | Может ли враг выиграть с данной поднятой фишкой?
+checkHostileGame :: Coord -> Game -> Bool
+checkHostileGame coord game = elem coord (possibleMoves game)
 
 
 -- =========================================
@@ -712,13 +790,15 @@ winner board
   | beigeLose = Just (Win Black)
   | otherwise = Nothing
   where
-    blackLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Black)     -- черная пчела окружена
-    beigeLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Beige)    -- бежевая пчела окружена
-    beeCoord :: Player -> Maybe Coord       -- координаты пчелы данного цвета
-    beeCoord player = takeCoord $ Map.filter hasBee board
-      where
-        hasBee :: Cell -> Bool      -- есть ли в клетке пчела данного цвета?
-        hasBee pieces = filter (\(p, insect, _) -> p == player && insect == Queen) pieces /= []
+    blackLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Black board)     -- черная пчела окружена
+    beigeLose = fromMaybe False $ beeIsLocked board <$> (beeCoord Beige board)    -- бежевая пчела окружена
+
+-- | Координаты пчелы данного цвета
+beeCoord :: Player -> Board -> Maybe Coord
+beeCoord player board = takeCoord $ Map.filter hasBee board
+  where
+    hasBee :: Cell -> Bool      -- есть ли в клетке пчела данного цвета?
+    hasBee pieces = filter (\(p, insect, _) -> p == player && insect == Queen) pieces /= []
 
 -- | Берет координаты первого элемента в контейнере (вспомогательная функция)
 takeCoord :: Board -> Maybe Coord
@@ -810,7 +890,7 @@ boardHeight = 4 * (numberOfPieces + 1) + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
-cellSizeX = 35
+cellSizeX = 30
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
