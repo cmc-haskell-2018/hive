@@ -182,6 +182,7 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
   , drawEnding maybeEnding
   , drawMovable movable
   , drawMove maybeEnding player
+  , drawInsBeetle board
   , drawDemand stepBeige stepBlack player maybeEnding movable
   , drawPossibleMoves game]
 
@@ -196,6 +197,47 @@ drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell 
   where
   cx = fromIntegral cellSizeX
   cy = fromIntegral cellSizeY
+
+-- | рисует стопки жуков
+drawInsBeetle ::  Board -> Picture
+drawInsBeetle board 
+  | board == Map.empty = blank 
+  | moreInsCells board == Map.empty = blank
+  | otherwise = drawB (moreInsCells board)
+
+
+
+-- Возвращает координаты клетки на которых стоят несколько насекомых
+moreInsCells :: Board -> Board  
+moreInsCells board 
+  | board == Map.empty = Map.empty
+  | otherwise = Map.filterWithKey (\ _ val -> length val > 1) board
+
+-- рисовать полосочки если фишки стоят друг на друге
+--drawIns:: 
+drawB :: Board -> Picture 
+drawB board = pictures(map drawB1 tl)
+  where
+    tl = Map.toList board
+
+-- | Рисуем точку на клетке
+drawB1 :: (Coord,Cell)-> Picture
+drawB1 (_, []) = blank
+drawB1 ((x, y), l) =
+  pictures [translate kx ky $ scale 0.15 0.15 $ color red $ drawCir n] 
+  --pictures [translate kx ky $ scale 0.15 0.15 $ color red $ text $ show n] 
+  where
+    kx = fromIntegral (cellSizeX * x)
+    ky = fromIntegral (cellSizeY * y)
+    n = length l
+ --   r = fromIntegral (5 * 15)
+drawCir :: Int -> Picture
+drawCir n 
+  | n == 1 = pictures [Circle r]
+  |n > 1 =  pictures [Circle r , drawCir (n-1)] 
+  | otherwise = blank
+  where
+    r = fromIntegral (12 * 2 * n)
 
 -- | Рисуем передвигаемую фишку и соответствующий текст
 drawMovable :: Maybe Movable -> Picture
