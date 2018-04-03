@@ -818,7 +818,10 @@ borderX = (2 * numberOfPieces) * cellSizeX
 
 -- | Динамически изменяемые размеры фишек на игровом поле
 newCellSizeX :: Board -> Int
-newCellSizeX _ = cellSizeX -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
+newCellSizeX board = if countPieceInGame /= 0 then cellSizeX * countPieceInGame else cellSizeX  -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
+  where
+    countPieceInGame = length $ filter (\val -> ((fst (fst val)) > -(cellDistance + numberOfPieces + 1) && (fst (fst val)) < (cellDistance + numberOfPieces + 1))) $ Map.toList $ Map.filter (\val -> val /= []) board
+--  countPieceInGame = 1
 
 newCellSizeY :: Int -> Int
 newCellSizeY cellSize = round ((fromIntegral cellSize) / ( sqrt 3) :: Double)
