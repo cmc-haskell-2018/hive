@@ -187,15 +187,15 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
 
 -- | Проверяем, нужно ли рисовать возможные ходы
 drawPossibleMoves :: Game -> Picture
-drawPossibleMoves Game{gameMovable = Nothing} = blank
-drawPossibleMoves game = drawPossible $ possibleMoves game
+drawPossibleMoves Game{gameBoard = board, gameMovable = Nothing} = blank
+drawPossibleMoves game = drawPossible (gameBoard game) $ possibleMoves game
 
 -- | Рисуем возможные ходы
-drawPossible :: [Coord] -> Picture
-drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell coords
+drawPossible :: Board -> [Coord] -> Picture
+drawPossible board coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell coords
   where
-  cx = fromIntegral cellSizeX
-  cy = fromIntegral cellSizeY
+  cx = fromIntegral (newCellsizeX board)
+  cy = fromIntegral (newCellsizeY (newCellsizeX board))
 
 -- | Рисуем передвигаемую фишку и соответствующий текст
 drawMovable :: Maybe Movable -> Picture
@@ -256,18 +256,18 @@ drawCell (x, y) = line
 
 -- | Рисуем всех насекомых
 drawAllInsects :: Board -> Picture
-drawAllInsects board = pictures(map drawInsect tl)
+drawAllInsects board = pictures(map (drawInsect board) tl)
   where
     tl = Map.toList board
 
 -- | Рисуем самое верхнее насекомое в клетке
-drawInsect :: (Coord, Cell) -> Picture
-drawInsect (_, []) = blank
-drawInsect ((x, y), ((_, _, pic):_)) =
+drawInsect :: Board -> (Coord, Cell) -> Picture
+drawInsect _ (_, [])  = blank
+drawInsect board ((x, y), ((_, _, pic):_)) =
   translate kx ky pic
   where
-    kx = fromIntegral (cellSizeX * x)
-    ky = fromIntegral (cellSizeY * y)
+    kx = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellsizeX board) * x)
+    ky = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellsizeY (newCellsizeX board)) * x)
 
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
@@ -309,16 +309,16 @@ putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
 putPieceBack game = game    -- чтобы компилятор не ругался
 
 -- | Определить клетку, в которую мы направляем мышкой
-getCell :: Point -> Coord
-getCell (xx, yy) -- = if ((i+j) mod 2) == 0 then (i,j) else
+getCell :: Point -> Board -> Coord
+getCell (xx, yy) board -- = if ((i+j) mod 2) == 0 then (i,j) else
   | (mod (ii + jj)  2) == 0 = (ii, jj)
   | (y < ((x * (-3)) + j + (3 * i) -1)) && (y > ((3 * x) + j - (3 * i) +1)) = ((ii - 1), jj)
   | (y < (( 3 * x) + j - (3 * i) - 1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = ((ii + 1), jj)
   | y > j  = (ii, (jj + 1))
   | otherwise = (ii, (jj - 1))
   where
-    x =(xx / fromIntegral cellSizeX)
-    y =(yy / fromIntegral cellSizeY)
+    x = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (xx / fromIntegral cellSizeX) else (xx / fromIntegral (newCellsizeX board))
+    y = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then (yy / fromIntegral cellSizeY) else (yy / fromIntegral (newCellsizeY (newCellsizeX board)))
     ii = round x
     jj = round y
     i = fromIntegral ii
@@ -342,7 +342,7 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige
       , gameStepBeige = stepBeige
       }
     step = if player == Black then stepBlack else stepBeige
-    coord = getCell (x, y)
+    coord = getCell (x, y) board
     pieces = fromMaybe [] $ Map.lookup coord board    -- список фишек в клетке с нужными координатами
     top = head pieces    -- самая верхняя фишка в списке
     movable = (coord, top)
@@ -364,7 +364,7 @@ mouseToCell (x, y) board
   | Map.lookup coord board == Nothing = Nothing
   | otherwise = Just coord
   where
-    coord = getCell (x, y)
+    coord = getCell (x, y) board
 
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
@@ -811,6 +811,17 @@ boardHeight = 4 * (numberOfPieces + 1) + 3
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
 cellSizeX = 25
+ 
+-- | Граница области
+borderX :: Int
+borderX = (2 * numberOfPieces) * cellSizeX
+
+-- | Динамически изменяемые размеры фишек на игровом поле
+newCellsizeX :: Board -> Int
+newCellsizeX _ = cellSizeX -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
+
+newCellsizeY :: Int -> Int
+newCellsizeY cellSize = round ((fromIntegral cellSize) / ( sqrt 3) :: Double)
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
