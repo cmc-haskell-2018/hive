@@ -196,6 +196,7 @@ drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell 
   cx = fromIntegral cellSizeX
   cy = fromIntegral cellSizeY
 
+-- | Масштабирование текста в зависимости от cellSizeX.
 scaleText :: Picture -> Picture
 scaleText = scale scaleFactor scaleFactor
   where
