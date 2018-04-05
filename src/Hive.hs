@@ -4,7 +4,6 @@ module Hive where
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Juicy
 import Data.List
-import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Map as Map
 -- | Запустить игру
@@ -37,10 +36,10 @@ type Piece = (Player, Insect, Picture)
 type Cell = [Piece]
 
 -- | Поле
-type Board = Map Coord Cell
+type Board = Map.Map Coord Cell
 
 -- | Достижимые клетки (для проверки улья на разрывность)
-type AccCells = Map Coord Cell
+type AccCells = Map.Map Coord Cell
 
 -- | Фишка с координатами
 type Movable = (Coord, Piece)
@@ -197,27 +196,55 @@ drawPossible coords = color (greyN 0.5) $ scale cx cy $ pictures $ map drawCell 
   cx = fromIntegral cellSizeX
   cy = fromIntegral cellSizeY
 
+-- | Масштабирование текста в зависимости от cellSizeX.
+scaleText :: Picture -> Picture
+scaleText = scale scaleFactor scaleFactor
+  where
+    scaleFactor = (fromIntegral cellSizeX)/105
+
 -- | Рисуем передвигаемую фишку и соответствующий текст
 drawMovable :: Maybe Movable -> Picture
 drawMovable Nothing = blank
 drawMovable (Just (_, (Beige, _, pic))) = pictures
-  [ translate (fromIntegral (- screenWidth) / 2 + 50) (fromIntegral (-screenHeight) / 2 + 50) $
-        scale 2 2 pic
-  , translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral (-screenHeight) / 2 + 100) $
-        scale 0.3 0.3 $ text "You are holding"]
+  [
+    translate
+      (halfScreenWidth  + 50)
+      (halfScreenHeight + 50)
+    $ scale 2 2 pic
+  , translate
+      (halfScreenWidth  + 20)
+      (halfScreenHeight + 100)
+    $ scaleText $ text "You are holding"
+  ]
+  where
+    halfScreenWidth  = fromIntegral (-screenWidth)  / 2
+    halfScreenHeight = fromIntegral (-screenHeight) / 2
+    
+
 drawMovable (Just (_, (Black, _, pic))) = pictures
-  [ translate (fromIntegral screenWidth / 2 - 50) (fromIntegral (-screenHeight) / 2 + 50) $
-        scale 2 2 pic
-  , translate (fromIntegral screenWidth / 2 - 320) (fromIntegral (-screenHeight) / 2 + 100) $
-        scale 0.3 0.3 $ text "You are holding"]
+  [
+    translate
+      (halfScreenWidth  - 50)
+      (halfScreenHeight + 50)
+    $ scale 2 2 pic
+  , translate
+      (halfScreenWidth  - 320)
+      (halfScreenHeight + 100)
+    $ scaleText $ text "You are holding"]
+  where
+    halfScreenWidth  = fromIntegral   screenWidth   / 2
+    halfScreenHeight = fromIntegral (-screenHeight) / 2
 
 -- | Пишем, чей ход
 drawMove :: Maybe Ending -> Player -> Picture
 drawMove (Just _) _ = blank
 drawMove Nothing player = placeText $ text $ (show player) ++ " team's move"
   where
-    placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
-        scale 0.3 0.3
+    placeText =
+        (translate
+          (fromIntegral (-screenWidth) / 2 + 20)
+          (fromIntegral   screenHeight / 2 - 60)
+        ) . scaleText
 
 -- | Проверяем, нужно ли взять пчелу
 drawDemand :: Step -> Step -> Player -> Maybe Ending -> Maybe Movable -> Picture
@@ -229,8 +256,11 @@ drawDemand _ _ _ _ _ = blank
 writeDemand :: Picture
 writeDemand = placeText $ text "Take the Queen bee"
   where
-    placeText = (translate (fromIntegral screenWidth / 2 - 420) (fromIntegral screenHeight / 2 - 60)) .
-        scale 0.3 0.3
+    placeText =
+        (translate
+          (fromIntegral screenWidth  / 2 - 420)
+          (fromIntegral screenHeight / 2 - 60)
+        ) . scaleText
 
 -- | Рисуем все клетки
 drawAllCells :: Board -> Picture
@@ -274,8 +304,11 @@ drawEnding :: Maybe Ending -> Picture
 drawEnding Nothing = blank
 drawEnding (Just ending) = placeText $ text $ endingText ending
   where
-    placeText = (translate (fromIntegral (- screenWidth) / 2 + 20) (fromIntegral screenHeight / 2 - 60)) .
-        scale 0.3 0.3
+    placeText =
+      (translate
+        (fromIntegral (- screenWidth) / 2 + 20)
+        (fromIntegral screenHeight / 2 - 60)
+      ) . scaleText
 
 -- | Надпись об окончании игры
 endingText :: Ending -> String
@@ -837,5 +870,3 @@ allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen .. Ant])
-
-
