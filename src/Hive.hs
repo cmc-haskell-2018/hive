@@ -264,10 +264,11 @@ drawAllInsects board = pictures(map (drawInsect board) tl)
 drawInsect :: Board -> (Coord, Cell) -> Picture
 drawInsect _ (_, [])  = blank
 drawInsect board ((x, y), ((_, _, pic):_)) =
-  translate kx ky pic
+  translate kx ky (scale picX picX pic)
   where
     kx = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellSizeX board) * x)
     ky = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellSizeY (newCellSizeX board)) * y)
+    picX = if (newCellSizeX board) > cellSizeX then 1.2 else 1
 
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
@@ -818,7 +819,9 @@ borderX = (2 * numberOfPieces) * cellSizeX
 
 -- | Динамически изменяемые размеры фишек на игровом поле
 newCellSizeX :: Board -> Int
-newCellSizeX board = if countPieceInGame /= 0 then cellSizeX * countPieceInGame else cellSizeX  -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
+newCellSizeX board 
+  | countPieceInGame < 3 = 30 --fromIntegral (fromIntegral cellSizeX * 1.2)
+  | otherwise  = cellSizeX -- = if countPieceInGame /= 0 then cellSizeX * countPieceInGame else cellSizeX  -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
   where
     countPieceInGame = length $ filter (\val -> ((fst (fst val)) > -(cellDistance + numberOfPieces + 1) && (fst (fst val)) < (cellDistance + numberOfPieces + 1))) $ Map.toList $ Map.filter (\val -> val /= []) board
 --  countPieceInGame = 1
