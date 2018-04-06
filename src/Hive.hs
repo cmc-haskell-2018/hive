@@ -316,21 +316,25 @@ aboutToLose game@Game{gameMovable = Nothing, gameEnding = Nothing, gameBoard = b
   | move == (0, 1) = False
   | otherwise = or $ fmap (checkHostileGame move) options  -- checkHostileGame
   where
-      filtered = Map.toList $ Map.filter isHostile board
+      filtered = Map.toList $ Map.filterWithKey isHostile board
       options = fmap (createHostileGame game) filtered
-      coordOfBee = beeCoord player board
+      coordOfBee = fromMaybe (0, 1)(beeCoord player board)
+      i = fst coordOfBee
+      j = snd coordOfBee
       move = fromMaybe (0, 1) $ beeIsAlmostLocked coordOfBee board
       
-      isHostile :: [Piece] -> Bool
-      isHostile [] = False
-      isHostile ((p,_,_):_) = p /= player
+      isHostile :: Coord -> [Piece] -> Bool
+      isHostile _ [] = False
+      isHostile (x, y)((p,_,_):_) = p /= player && (x == i+1 && y == j+1 || x == i+1 && y == j-1 ||
+                                                    x == i-1 && y == j+1 || x == i-1 && y == j-1 ||
+                                                    x == i && y == j+2 || x == i && y == j-2) == False
       
 aboutToLose _ = False
 
 -- | Проверить, что пчела почти заперта. Если да, то вернуть свободную рядом с ней клетку
-beeIsAlmostLocked :: Maybe Coord -> Board -> Maybe Coord
-beeIsAlmostLocked Nothing _ = Nothing
-beeIsAlmostLocked (Just (x, y)) board
+beeIsAlmostLocked :: Coord -> Board -> Maybe Coord
+beeIsAlmostLocked (0, 1) _ = Nothing        -- если пчела еще не введена в игру
+beeIsAlmostLocked (x, y) board
   | up && upLeft && upRight && down && downLeft && downRight = Nothing       -- пчела заперта, этот случай нас не интересует
   | up && upLeft && upRight && down && downLeft = Just (x+1, y-1)
   | up && upLeft && upRight && down && downRight = Just (x-1, y-1)
