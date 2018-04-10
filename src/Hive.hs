@@ -266,9 +266,25 @@ drawInsect _ (_, [])  = blank
 drawInsect board ((x, y), ((_, _, pic):_)) =
   translate kx ky (scale picX picX pic)
   where
-    kx = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellSizeX board) * x)
-    ky = if ((x < fromIntegral (- borderX)) || (x > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellSizeY (newCellSizeX board)) * y)
-    picX = if (newCellSizeX board) > cellSizeX then 1.2 else 1
+    xx = x *cellSizeX
+    kx = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then fromIntegral (cellSizeX * x) else fromIntegral ((newCellSizeX board) * x)
+    ky = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then fromIntegral (cellSizeY * y) else fromIntegral ((newCellSizeY (newCellSizeX board)) * y)
+    picX = if ((xx < fromIntegral (- borderX)) || (xx > fromIntegral borderX)) then 1 else masshtab (newCellSizeX board)
+-- if (newCellSizeX board) > cellSizeX then 1.2 else 1
+
+-- | Masshtab
+masshtab :: Int -> Float
+masshtab x
+  | x == 100 = 4
+  | x == 85 = 3.4
+  | x == 75 = 3
+  | x == 60 = 2.4
+  | x == 30 = 1.2
+  | x == 35 = 1.4
+  | x == 40 = 1.6
+  | x == 45 = 1.8
+  | x == 50 = 2
+  | otherwise = 1
 
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
@@ -401,6 +417,7 @@ putInsect piece = Map.adjust (piece:)
 -- | Список координат всех допустимых клеток для постановки фишки
 possibleMoves :: Game -> [Coord]
 possibleMoves Game{gameBoard = board, gameMovable = Just((x,y), (player, ins,_)), gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+  | isSide && step == First && player == Beige = [(0,0)]
   | isSide && step == First = notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
   | isSide = notTouchingPieces (switchPlayer player) board $ notTearingMoves board $ delStartCells (map fst $ Map.toList only_free_cells)
   | step /= Other = []
@@ -815,12 +832,20 @@ cellSizeX = 25
  
 -- | Граница области
 borderX :: Int
-borderX = (2 * numberOfPieces) * cellSizeX
+borderX =  numberOfPieces * cellSizeX
 
 -- | Динамически изменяемые размеры фишек на игровом поле
 newCellSizeX :: Board -> Int
-newCellSizeX board 
-  | countPieceInGame < 3 = 30 --fromIntegral (fromIntegral cellSizeX * 1.2)
+newCellSizeX board
+  | countPieceInGame < 3 = 100
+  | countPieceInGame < 5 = 85
+  | countPieceInGame < 7 = 75
+  | countPieceInGame < 9 = 60
+  | countPieceInGame < 11 = 50 --fromIntegral (fromIntegral cellSizeX * 1.2)
+  | countPieceInGame < 13 = 45
+  | countPieceInGame < 15 = 40
+  | countPieceInGame < 17 = 35
+  | countPieceInGame < 19 = 30
   | otherwise  = cellSizeX -- = if countPieceInGame /= 0 then cellSizeX * countPieceInGame else cellSizeX  -- Здесь надо изменить её на динамическое изменение в зависимости от состояния поля
   where
     countPieceInGame = length $ filter (\val -> ((fst (fst val)) > -(cellDistance + numberOfPieces + 1) && (fst (fst val)) < (cellDistance + numberOfPieces + 1))) $ Map.toList $ Map.filter (\val -> val /= []) board
