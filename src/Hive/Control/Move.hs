@@ -15,19 +15,6 @@ import Data.Maybe
 -- =========================================
 
 
--- | Обработка нажатия клавиш мыши
-handleGame :: Event -> Game -> Game
-handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
-  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
-  | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | otherwise = checkWinner $ shiftGame $ 
-        makeMove (getCell mouse) game    -- фишка уже взята
-handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- положить фишку обратно
-  | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
-  | isNothing (gameMovable game) = game    -- фишка еще не взята, отменять нечего
-  | otherwise = putPieceBack game       -- фишка взята, кладем ее на место
-handleGame _ game = game
-
 -- | Положить фишку на место
 putPieceBack :: Game -> Game
 putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
@@ -120,10 +107,6 @@ putInsect piece coord board
 switchPlayer :: Player -> Player
 switchPlayer Beige = Black
 switchPlayer Black = Beige
-
--- | Обновление игры.
-updateGame :: Float -> Game -> Game
-updateGame _ = id
 
 
 -- =========================================
