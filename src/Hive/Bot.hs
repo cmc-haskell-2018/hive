@@ -2,6 +2,7 @@ module Hive.Bot
   where
 
 import Hive.Model
+import Hive.Config
 import Hive.Control
 import Data.Maybe
 import qualified Data.Map as Map
@@ -40,10 +41,11 @@ futureMovesBot game
 futurePlusPrinciplesBot :: Game -> (Coord, Coord)
 futurePlusPrinciplesBot game
   | good /= Nothing = get good
-  | neutral /= [] && coordOfBee == (0,1) = takeAt neutral $ mod (genRand game) (length neutral)
-  | neutral /= [] && closer /= [] = head closer
+  | neutral /= [] && openBee /= (0,1) && beetle /= [] = head beetle
+  | neutral /= [] && bee /= (0,1) && closer /= [] = head closer
   | neutral /= [] = takeAt neutral $ mod (genRand game) (length neutral)
-  | otherwise = get bad
+  | notStupid /= [] = head notStupid
+  | otherwise = get $ lookup Bad moves
   where
     player = gamePlayer game
     opponent = if player == Beige then Black else Beige
@@ -52,16 +54,27 @@ futurePlusPrinciplesBot game
     moves = foldr (++) [] $ fmap (createMovesForPiece game) filtered
     good = lookup Good moves -- хороший ход
     neutral = map snd $ filter (\(choice,_) -> choice == Neutral) moves -- список нейтральных ходов
-    bad = lookup Bad moves -- плохой ход
+    notStupid = map snd $ filter (\(_,(_, to)) -> distance bee to > 1) moves -- список не тупых ходов
     get = fromMaybe ((0,1),(0,1))
-    coordOfBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == opponent && ins == Queen) board     -- координата вражеской пчелы
-    close n = filter (\(from, to) -> distance coordOfBee to == n
-        && distance coordOfBee from > distance coordOfBee to) neutral      -- насекомое подходит на расстояние n от пчелы
-    closer = (close 0) ++ (close 1) ++ (close 2) ++ (close 3)
+    myOpenBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == player && ins == Queen) board     -- открытая координата моей пчелы 
+    openBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == opponent && ins == Queen) board     -- открытая координата вражеской пчелы 
+    bee = fromMaybe (0,1) $ beeCoord opponent board     -- открытая координата вражеской пчелы
+    beetle = filter (\(_, to) -> distance openBee to == 0) neutral
+    close n = filter (\(from, to) -> distance bee to == n && to /= myOpenBee
+        && distance bee from > distance bee to) neutral      -- насекомое подходит на расстояние n от пчелы
+    closer = (close 1) ++ (close 2) ++ (close 3)
 
 -- | Расстояние между клетками
 distance :: (Coord) -> (Coord) -> Int
-distance (x1, y1) (x2, y2) = (abs (x2 - x1) + abs (y2 - y1)) `div` 2
+distance(x1, y1) (x2, y2)
+  | isSide x1 || isSide x2 || (x1 + y1) `mod` 2 /= 0 || (x2 + y2) `mod` 2 /= 0 = 1000
+  | y >= x = (x + y) `div` 2
+  | otherwise = x
+    where
+      isSide x' = x' < -(n + 1) || x' > n + 1
+      x = abs (x2 - x1)
+      y = abs (y2 - y1)
+      n = numberOfPieces
     
 -- | Взятие элемента из списка по номеру
 takeAt :: [(Coord, Coord)] -> Int -> (Coord, Coord)
