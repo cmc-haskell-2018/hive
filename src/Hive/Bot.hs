@@ -12,57 +12,101 @@ import Data.Char
 data Choice = Good | Neutral | Bad
   deriving (Eq)
 
--- | Ход - откуда, куда, хороший ли выбор
-type Move = (Choice, (Coord, Coord))
+-- | Откуда - куда
+type FromTo = (Coord, Coord)
+ 
+-- | Ход -  хороший ли выбор, откуда, куда
+type Move = (Choice, FromTo)
+
+type Bot = Game -> FromTo
+
+type Principle = Game -> [FromTo] -> Maybe FromTo
 
 
 -- =========================================
--- Функции ботов
+-- Основная Функция бота
 -- =========================================
 
-
--- | Бот, просчитывающий ходы
-futureMovesBot :: Game -> (Coord, Coord)
-futureMovesBot game
-  | good /= Nothing = get good
-  | neutral /= [] = takeAt neutral $ mod (genRand game) (length neutral)
-  | otherwise = get bad
-  where
-    player = gamePlayer game
-    board = gameBoard game
-    filtered = map fst $ Map.toList $ Map.filter (\((p,_,_):_) -> p == player) board
-    moves = foldr (++) [] $ fmap (createMovesForPiece game) filtered
-    good = lookup Good moves -- хороший ход
-    neutral = map snd $ filter (\(choice,_) -> choice == Neutral) moves -- список нейтральных ходов
-    bad = lookup Bad moves -- плохой ход
-    get = fromMaybe ((0,1),(0,1))
 
 -- | Бот, просчитывающий ходы и руководствующийся принципами
-futurePlusPrinciplesBot :: Game -> (Coord, Coord)
-futurePlusPrinciplesBot game
+futurePlusPrinciplesBot :: Int -> [Principle] -> Game -> FromTo
+futurePlusPrinciplesBot steps principles game@Game{gamePlayer = player, gameBoard = board}
   | good /= Nothing = get good
-  | neutral /= [] && openBee /= (0,1) && beetle /= [] = head beetle
-  | neutral /= [] && bee /= (0,1) && closer /= [] = head closer
-  | neutral /= [] = takeAt neutral $ mod (genRand game) (length neutral)
+  | neutral /= [] = makeNeutralMove principles neutral game
   | notStupid /= [] = head notStupid
   | otherwise = get $ lookup Bad moves
   where
-    player = gamePlayer game
-    opponent = if player == Beige then Black else Beige
-    board = gameBoard game
-    filtered = map fst $ Map.toList $ Map.filter (\((p,_,_):_) -> p == player) board
-    moves = foldr (++) [] $ fmap (createMovesForPiece game) filtered
+    filtered = map fst $ Map.toList $ Map.filter (\((p,_,_):_) -> p == player) board        -- коогдинаты открытых фишек игрока
+    moves = foldr (++) [] $ fmap (createMovesForPiece steps game) filtered      -- все возможные ходы игрока
     good = lookup Good moves -- хороший ход
     neutral = map snd $ filter (\(choice,_) -> choice == Neutral) moves -- список нейтральных ходов
-    notStupid = map snd $ filter (\(_,(_, to)) -> distance bee to > 1) moves -- список не тупых ходов
+    myBee = fromMaybe (0,1) $ beeCoord player board     -- координата моей пчелы
+    notStupid = map snd $ filter (\(_,(_, to)) -> distance myBee to > 1) moves -- список не тупых ходов (не приводящих к проигрышу сразу)
     get = fromMaybe ((0,1),(0,1))
-    myOpenBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == player && ins == Queen) board     -- открытая координата моей пчелы 
-    openBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == opponent && ins == Queen) board     -- открытая координата вражеской пчелы 
-    bee = fromMaybe (0,1) $ beeCoord opponent board     -- открытая координата вражеской пчелы
-    beetle = filter (\(_, to) -> distance openBee to == 0) neutral
-    close n = filter (\(from, to) -> distance bee to == n && to /= myOpenBee
+    
+
+-- =========================================
+-- Принципы бота
+-- =========================================
+
+
+-- | Выбрать нейтральный ход
+makeNeutralMove :: [Principle] -> [FromTo] -> Game -> FromTo
+makeNeutralMove [] neutral game = randomMove game neutral
+makeNeutralMove (f:fs) neutral game
+  | move == Nothing = makeNeutralMove fs neutral game
+  | otherwise = get move
+  where
+    get = fromMaybe ((0,1),(0,1))
+    move = f game neutral
+
+-- | Взять ход из списка рандомно
+randomMove :: Game -> [FromTo] -> FromTo
+randomMove game neutral = takeAt neutral $ mod genRand (length neutral)
+  where
+    -- | Взятие элемента из списка по номеру
+    takeAt :: [FromTo] -> Int -> FromTo
+    takeAt [] _ = ((0,1),(0,1))
+    takeAt (x:_) 0 = x
+    takeAt (_:xs) n = takeAt xs (n-1)
+    
+    -- | Сгенерировать число, зависящее от игры
+    genRand = mod (sum $ fmap ord $ show game) 1023
+
+-- | Закрыть вражескую пчелу жуком
+coverBee :: Principle
+coverBee Game{gamePlayer = player, gameBoard = board} neutral
+  | openBee /= Nothing && beetle /= [] = Just (head beetle)
+  | otherwise = Nothing
+  where
+    opponent = if player == Beige then Black else Beige
+    openBee = takeCoord $ Map.filter (\((p, ins, _):_) -> p == opponent && ins == Queen) board     -- открытая координата вражеской пчелы
+    beetle = filter (\(_, to) -> distance (fromMaybe (0,1) openBee) to == 0) neutral
+
+-- | Подойти на расстояние n к вражеской пчеле
+getCloser :: Int -> Principle
+getCloser n Game{gamePlayer = player, gameBoard = board} neutral
+  | bee /= (0,1) && close /= [] = Just (head close)
+  | otherwise = Nothing
+  where
+    opponent = if player == Beige then Black else Beige
+    bee = fromMaybe (0,1) $ beeCoord opponent board     -- координата вражеской пчелы
+    myOpenBee = fromMaybe (0,1) $ takeCoord $ Map.filter (\((p, ins, _):_) -> p == player && ins == Queen) board     -- моя открытая пчела
+    close = filter (\(from, to) -> distance bee to == n && to /= myOpenBee
         && distance bee from > distance bee to) neutral      -- насекомое подходит на расстояние n от пчелы
-    closer = (close 1) ++ (close 2) ++ (close 3)
+
+-- | Ввести в игру нужное насекомое
+bringIn :: Insect -> Principle
+bringIn insect Game{gameBoard = board} neutral
+  | insects /= [] = Just (head insects)
+  | otherwise = Nothing
+  where
+    insects = filter (\(from,_) -> isSide from && isInsect (Map.lookup from board)) neutral
+    isSide (x, _) = x < -(n + 1) || x > n + 1
+    isInsect :: Maybe Cell -> Bool
+    isInsect (Just ((_,ins,_):_)) = ins == insect
+    isInsect _ = False
+    n = numberOfPieces
 
 -- | Расстояние между клетками
 distance :: (Coord) -> (Coord) -> Int
@@ -75,21 +119,20 @@ distance(x1, y1) (x2, y2)
       x = abs (x2 - x1)
       y = abs (y2 - y1)
       n = numberOfPieces
-    
--- | Взятие элемента из списка по номеру
-takeAt :: [(Coord, Coord)] -> Int -> (Coord, Coord)
-takeAt [] _ = ((0,1),(0,1))
-takeAt (x:_) 0 = x
-takeAt (_:xs) n = takeAt xs (n-1)
+
+
+-- =========================================
+-- Просчет ходов
+-- =========================================
 
 -- | Составить список Move для данной поднятой фишки
-createMovesForPiece :: Game -> Coord -> [Move]
-createMovesForPiece game coord
+createMovesForPiece :: Int -> Game -> Coord -> [Move]
+createMovesForPiece steps game coord
   = fmap makeTuple possible
     where
       newGame = takePiece coord game
       possible = possibleMoves newGame
-      makeTuple = (\move -> (tryPutting 1 newGame move, (coord, move)))
+      makeTuple = (\move -> (tryPutting steps newGame move, (coord, move)))
 
 -- | Посмотреть, что будет, если взять фишку
 tryTaking :: Int -> Game -> Coord -> Choice
@@ -101,10 +144,11 @@ tryTaking n game coord = combineChoices $ fmap (tryPutting n newGame) possible
 -- | Посмотреть, что будет, если положить фишку
 tryPutting :: Int -> Game -> Coord -> Choice
 tryPutting n game coord
+  | n <= 0 = Neutral
   | newEnding == Just (Win player) = Good
   | newEnding == Just (Win opponent) = Bad
   | newEnding == Just Tie = Neutral
-  | n == 0 = Neutral
+  | n == 1 = Neutral
   | player == newPlayer = combineChoices choices
   | otherwise = reverseChoices choices
     where
@@ -130,8 +174,3 @@ reverseChoices choices
   | elem Good choices = Bad
   | elem Neutral choices = Neutral
   | otherwise = Good
-
--- | Сгенерировать (типа) случайное число, зависящее от игры
-genRand :: Game -> Int
-genRand game = mod (sum $ fmap ord $ show game) 1023
-

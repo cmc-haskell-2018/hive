@@ -13,6 +13,22 @@ import Data.Maybe
 -- =========================================
 
 
+-- | Определить клетку, в которую мы направляем мышкой
+getCell :: (Float, Float) -> Coord
+getCell (xx, yy)
+  | (mod (ii + jj)  2) == 0 = (ii, jj)
+  | (y < ((x * (-3)) + j + (3 * i) -1)) && (y > ((3 * x) + j - (3 * i) +1)) = ((ii - 1), jj)
+  | (y < (( 3 * x) + j - (3 * i) - 1)) && (y > (( (-3) * x) +j + (3 * i) +1)) = ((ii + 1), jj)
+  | y > j  = (ii, (jj + 1))
+  | otherwise = (ii, (jj - 1))
+  where
+    x =(xx / fromIntegral cellSizeX)
+    y =(yy / fromIntegral cellSizeY)
+    ii = round x
+    jj = round y
+    i = fromIntegral ii
+    j = fromIntegral jj
+
 -- | Положить фишку на место
 putPieceBack :: Game -> Game
 putPieceBack game@Game{gameMovable = Just (coord, piece), gameBoard = board}
