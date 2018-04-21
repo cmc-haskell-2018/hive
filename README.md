@@ -19,6 +19,12 @@ stack build
 stack build && stack exec hive
 ```
 
+Запустить игру с ботом
+
+```
+stack exec future-moves-bot
+```
+
 Запустить тесты можно при помощи команды
 
 ```

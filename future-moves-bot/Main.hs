@@ -10,25 +10,34 @@ main = do
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
-    fps     = 0      -- кол-во кадров в секунду
+    fps     = 5      -- кол-во кадров в секунду
 
 -- | Обработка нажатия клавиш мыши
 handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
+  | gamePlayer game == Black = game     -- если сейчас ходит бот, мы ничего не можем сделать
   | gameEnding game /= Nothing = game    -- если игра окончена, ничего сделать нельзя
   | gameMovable game == Nothing = takePiece coord game    -- фишка еще не взята
   | otherwise = makeMove coord game    -- фишка уже взята
           where
             coord = getCell mouse
 handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- положить фишку обратно
+  | gamePlayer game == Black = game     -- если сейчас ходит бот, мы ничего не можем сделать
   | gameEnding game /= Nothing = game    -- если игра окончена, ничего сделать нельзя
   | gameMovable game == Nothing = game    -- фишка еще не взята, отменять нечего
   | otherwise = putPieceBack game       -- фишка взята, кладем ее на место
 handleGame _ game = game
 
--- | Обновление игры.
+-- | Обновление игры. Вызывает функцию бота
 updateGame :: Float -> Game -> Game
-updateGame _ = id
+updateGame _ game
+  | gamePlayer game == Beige = game
+  | gameEnding game /= Nothing = game
+  | gameMovable game /= Nothing = game
+  | otherwise = makeMove put $ takePiece take game
+    where
+      -- (take, put) = futureMovesBot game
+      (take, put) = futurePlusPrinciplesBot game
 
 -- | Определить клетку, в которую мы направляем мышкой
 getCell :: Point -> Coord
