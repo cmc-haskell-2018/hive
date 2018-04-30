@@ -11,7 +11,8 @@ import qualified Data.Map as Map
 runHive :: IO ()
 runHive = do
   game <- initGame
-  play display bgColor fps game drawGame handleGame updateGame
+  play display bgColor fps game  drawGame handleGame updateGame
+-- play display bgColor fps game drawGame handleGame updateGame
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
@@ -56,6 +57,18 @@ data Ending = Win Player | Tie
 data Step = First | Second | Third | Fours | Other 
   deriving (Enum, Eq)
 
+-- | картинки 
+-- data Images = Images 
+-- { imageStartMenu :: Picture
+--   imageQuestion :: Picture
+-- }
+
+-- | Тип игры - ИИ, 2 игрока
+data GameType = AIGame | PlayersGame
+  deriving(Eq, Show)
+data GameMode = StartMenu | HelpMode | Default
+  deriving(Eq, Show)
+
 -- | Состояние игры
 data Game = Game
   { gameBoard  :: Board    -- Игровое поле.
@@ -64,30 +77,40 @@ data Game = Game
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
   , gameStepBlack :: Step -- Номер хода черного игрока 
   , gameStepBeige :: Step -- Номер хода бежевого игрока 
+  , gameMode ::GameMode -- состояние игры
+  , imgs :: [Picture]
   }
 
-  
 -- =========================================
 -- Инициализация
 -- =========================================
 
-
 -- | Начальное состояние игры
 initGame :: IO Game
-initGame = gameWithImages <$> loadImages
+initGame = fmap gameWithImages loadImages  
+
 
 -- | Инициализировать экран с заданными изображениями
 gameWithImages :: [Picture] -> Game
-gameWithImages images = Game
-  { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images)    -- игровое поле - пусто
+gameWithImages images  = Game
+  { gameBoard  = Map.union (createCells (-n-1) (-n-1)) (createPieces images1)    -- игровое поле - пусто
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
   , gameStepBlack = First -- первый ход черного
   , gameStepBeige = First -- первый ход бежевого
+  , gameMode  = Default 
+  , imgs = images2
   }
   where
     n = numberOfPieces
+    images1 = takeNlist images 10 
+    images2 = reverse (takeNlist (reverse images) 2 )
+-- |берет первые n элементов списка
+takeNlist :: [Picture] -> Int -> [Picture]
+takeNlist [] _ = []
+takeNlist _ 0 = []
+takeNlist (x:xs) n = x : takeNlist xs (n-1)
 -- | Создаем список из клеток игрового поля
 createCells :: Int -> Int -> Board
 createCells x y
@@ -129,12 +152,12 @@ createPieces pic = Map.fromList
     t = takePic pic
 
     -- Взять картинку из списка по номеру (кажется, такой подход абсолютно отвратителен, но я не уверена)
-    takePic :: [Picture] -> Int -> Picture
-    takePic [] _ = blank
-    takePic (p : ps) n
-      | n < 0 = blank
-      | n == 0 = p
-      | otherwise = takePic ps (n - 1)
+takePic :: [Picture] -> Int -> Picture
+takePic [] _ = blank
+takePic (p : ps) n
+  | n < 0 = blank
+  | n == 0 = p
+  | otherwise = takePic ps (n - 1)
 
 
 -- =========================================
@@ -150,23 +173,31 @@ loadPieceImage s = fmap (translate 0 0 . scale k k)
     path = "images/" ++ s ++ ".png"
     k = 5 / 4 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
 
-    -- | Переводит Maybe Picture в Picture
-    maybePicToPic :: Maybe Picture -> Picture
-    maybePicToPic (Just p) = p
-    maybePicToPic Nothing = blank
 
-
--- | Загрузка изображений всех фишек в нужном масштабе.
-loadImages :: IO [Picture]
-loadImages = listToIO $ loadPieceImage <$> allImageNames
+-- | Загрузка изображения в обычном масштабе
+simpleLoadImage :: String -> IO Picture
+simpleLoadImage s = fmap (translate 0 0 . scale 0.1 0.1  )
+  (maybePicToPic <$> (loadJuicyJPG path))
   where
+    path = "images/help/" ++ s ++ ".jpg"
+
+-- | Переводит Maybe Picture в Picture
+maybePicToPic :: Maybe Picture -> Picture
+maybePicToPic (Just p) = p
+maybePicToPic Nothing = blank
+
+-- | Загрузка изображений для меню и фишек
+loadImages :: IO [Picture] 
+loadImages = listToIO list
+--  ++ listToIO list
+  where
+    list = (loadPieceImage <$> allImageNames) ++ (simpleLoadImage <$> allHelpImageNames)
     -- | Переводит список IO a в IO списка a
     listToIO :: [IO a] -> IO [a]
     listToIO [] = return []
     listToIO (x:xs) = do
       y <- x
       fmap (y:) (listToIO xs)
-
 
 -- =========================================
 -- Отрисовка игры
@@ -176,7 +207,22 @@ loadImages = listToIO $ loadPieceImage <$> allImageNames
 -- | Рисуем всё
 drawGame :: Game -> Picture
 drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
-            , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack} = pictures
+            , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images } 
+  | stepBlack == First && stepBeige == First = pictures
+  [ --drawAllCells board,
+ -- 	drawStartMenu game
+    drawAllInsects board
+  , drawEnding maybeEnding
+  , drawMovable movable
+  , drawMove maybeEnding player
+  , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
+  , drawDemand stepBeige stepBlack player maybeEnding movable
+  , drawPossibleMoves game
+  , drawQuestion (head images)
+  , drawMode game
+  ]
+  
+  |otherwise = pictures
   [ --drawAllCells board,
     drawAllInsects board
   , drawEnding maybeEnding
@@ -184,7 +230,26 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
   , drawMove maybeEnding player
   , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
   , drawDemand stepBeige stepBlack player maybeEnding movable
-  , drawPossibleMoves game]
+  , drawPossibleMoves game
+  , drawQuestion (head images)
+  , drawMode game
+  ]
+
+drawMode :: Game -> Picture
+drawMode game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images } 
+  | mode == HelpMode =  drawHelpPanel  ( takePic  images  1 )  
+  | otherwise = blank 
+
+--drawHelpPanel ( takePic  pics  2 )  
+checkHelp :: GameMode -> Bool
+checkHelp mode
+  | mode == HelpMode = True 
+  | otherwise = False
+
+
+
+drawHelpPanel :: Picture -> Picture
+drawHelpPanel pic = pictures [scale 4 4 $ pic]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
 drawPossibleMoves :: Game -> Picture
@@ -309,6 +374,11 @@ drawInsect ((x, y), ((_, _, pic):_)) =
     kx = fromIntegral (cellSizeX * x)
     ky = fromIntegral (cellSizeY * y)
 
+-- | Рисуем вопросительны знак
+-- screenWidth ширина экрана
+drawQuestion ::Picture ->  Picture 
+drawQuestion image = pictures [translate 770 370 $ scale 0.7 0.7 $  image]
+
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
 drawEnding Nothing = blank
@@ -323,16 +393,23 @@ endingText Tie = "It's a Tie:)"
 endingText (Win Black) = "Black Team Won"
 endingText (Win Beige) = "Beige Team Won"
 
+-- | Стартовое меню
+-- drawStartMenu Game -> Picture
+-- drawStartMenu game = pictures
+-- 	[trunslate 0 0 image
+-- 	,trunslate x y (scale r r ())
 
 -- =========================================
 -- Перемещение фишек
 -- =========================================
 
+-- | isJust (gameStart game)  = menuHandle game mouse -- если стартоовое состояние игры 
 
 -- | Обработка нажатия клавиш мыши
 handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
+  | (isHelp mouse) = changeGame game
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
   | otherwise = checkWinner $ shiftGame $ 
         makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
@@ -341,6 +418,35 @@ handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- поло�
   | isNothing (gameMovable game) = game    -- фишка еще не взята, отменять нечего
   | otherwise = putPieceBack game       -- фишка взята, кладем ее на место
 handleGame _ game = game
+
+-- | обработка событий в стартовом меню
+-- menuHandle :: Game -> Point -> Game
+-- menuHandle game mouse
+--   | (isSelectAIMode mouse) = game -- переход в режим AI
+--   | (isSelectPlayersMode mouse) = game -- переход в режим 2 игроков
+--   | (isSelectRules mouse) = 
+-- | проверка нажатия
+isHelp :: Point -> Bool
+isHelp (x,y)  = x > 700 && x < 850 &&  y > 300 && y < 450 
+--isHelp (x,y)  = (y > 700) && (y < 850) &&  (x > 300) && (x < 450) 
+
+--showHelp (x, y) = 610 < x && x < 670 && 350 < y && y < 450
+
+
+
+-- | показать панель правил
+changeGame :: Game -> Game
+changeGame  game@Game{gamePlayer = player, gameBoard = board, gameMovable = gameMov, gameEnding = gameEnd,  gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images }=
+ Game{  
+    gameBoard = board
+  , gamePlayer = player
+  , gameMovable = gameMov
+  , gameEnding=gameEnd
+  , gameStepBeige = stepBeige
+  , gameStepBlack = stepBlack
+  , gameMode = HelpMode 
+  , imgs = images
+}
 
 -- | Положить фишку на место
 putPieceBack :: Game -> Game
@@ -366,7 +472,7 @@ getCell (xx, yy) -- = if ((i+j) mod 2) == 0 then (i,j) else
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Point -> Game -> Game
-takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images }
   | pieces == [] = game
   | pieceColor top /= player = game
   | checkQueenStep movable = newGame
@@ -380,6 +486,8 @@ takePiece (x, y) game@Game{gamePlayer = player, gameBoard = board, gameStepBeige
       , gameEnding = Nothing
       , gameStepBlack = stepBlack
       , gameStepBeige = stepBeige
+      , gameMode = mode
+      , imgs = images
       }
     step = if player == Black then stepBlack else stepBeige
     coord = getCell (x, y)
@@ -409,7 +517,7 @@ mouseToCell (x, y) board
 -- | Сделать ход, если возможно
 makeMove :: Maybe Coord -> Game -> Game
 makeMove Nothing game = game    -- если ткнули не в клетку поля
-makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack,gameMode = mode, imgs = images}
    | (elem (i, j) (possibleMoves game)) = Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) (i,j) board
@@ -417,6 +525,8 @@ makeMove (Just (i, j)) game@Game{gamePlayer = player, gameBoard = board, gameMov
      , gameEnding = Nothing
      , gameStepBlack = if player == Black then nextStep stepBlack else stepBlack
      , gameStepBeige = if player == Beige then nextStep stepBeige else stepBeige
+     , gameMode = mode
+     , imgs = images
      }
    | otherwise = game    -- если выбранный ход невозможен
      where 
@@ -902,7 +1012,7 @@ boardHeight = 4 * (numberOfPieces + 1) + 3
 
 -- | Ширина одной клетки в пикселях.
 cellSizeX :: Int
-cellSizeX = 35
+cellSizeX = 25
 
 -- | Высота одной клетки в пикселях.
 cellSizeY :: Int
@@ -930,3 +1040,6 @@ allImageNames = fmap (++)
   (show <$> [Beige, Black]) <*>
   (show <$> [Queen .. Ant])
 
+allHelpImageNames :: [String]
+allHelpImageNames = ["1question", "2"]
+--allHelpImageNames = ["queen", "hopper", "ant", "beetle", "spider", "question", "help1","help2","help3","help4","help5","help6","help7"]
