@@ -6,6 +6,7 @@ import Hive.Config
 import Graphics.Gloss
 import Graphics.Gloss.Juicy
 import qualified Data.Map as Map
+import Data.Foldable
 
 
 -- =========================================
@@ -16,33 +17,21 @@ import qualified Data.Map as Map
 -- | Список всех имен изображений
 allImageNames :: [String]
 allImageNames = fmap (++)
-  (show <$> [Beige, Black]) <*>
+  (show <$> [Beige .. Black]) <*>
   (show <$> [Queen .. Ant])
 
 -- | Загрузка изображения фишки в нужном масштабе.
 loadPieceImage :: String -> IO Picture
 loadPieceImage s = fmap (translate 0 0 . scale k k)
-  (maybePicToPic <$> (loadJuicyPNG path))
+  (fold <$> (loadJuicyPNG path))
   where
     path = "images/" ++ s ++ ".png"
     k = 5 / 4 * fromIntegral cellSizeX / (fromIntegral pieceWidth)
 
-    -- | Переводит Maybe Picture в Picture
-    maybePicToPic :: Maybe Picture -> Picture
-    maybePicToPic (Just p) = p
-    maybePicToPic Nothing = blank
-
 
 -- | Загрузка изображений всех фишек в нужном масштабе.
 loadImages :: IO [Picture]
-loadImages = listToIO $ loadPieceImage <$> allImageNames
-  where
-    -- | Переводит список IO a в IO списка a
-    listToIO :: [IO a] -> IO [a]
-    listToIO [] = return []
-    listToIO (x:xs) = do
-      y <- x
-      fmap (y:) (listToIO xs)
+loadImages = sequenceA $ loadPieceImage <$> allImageNames
 
 
 -- =========================================

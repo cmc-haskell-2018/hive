@@ -41,13 +41,33 @@ executable hive
                      , gloss
   default-language:    Haskell2010
 
-executable future-moves-bot
-  hs-source-dirs:      future-moves-bot
+executable player-vs-bot
+  hs-source-dirs:      player-vs-bot
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base				 
                      , hive
                      , gloss
+  default-language:    Haskell2010
+
+executable bot-vs-player
+  hs-source-dirs:      bot-vs-player
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base				 
+                     , hive
+                     , gloss
+  default-language:    Haskell2010
+
+executable bot-vs-bot
+  hs-source-dirs:      bot-vs-bot
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base				 
+                     , hive
+                     , gloss
+                     , stm
+                     , stm-lifted
   default-language:    Haskell2010
 
 test-suite hive-test

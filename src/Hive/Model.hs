@@ -33,7 +33,7 @@ type Movable = (Coord, Piece)
 
 -- | Игрок
 data Player = Beige | Black
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Enum)
 
 -- | Окончание игры
 data Ending = Win Player | Tie deriving (Eq, Show)

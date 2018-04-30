@@ -19,13 +19,25 @@ stack build
 stack build && stack exec hive
 ```
 
-Запустить игру с ботом
+Запустить игру игрока с ботом
 
 ```
-stack exec future-moves-bot
+stack exec player-vs-bot
 ```
 
-Запустить тесты можно при помощи команды
+Запустить игру бота с игроком
+
+```
+stack exec bot-vs-player
+```
+
+Запустить игру бота с ботом
+
+```
+stack exec bot-vs-bot
+```
+
+Запустить тесты (которых нет) можно при помощи команды
 
 ```
 stack test
