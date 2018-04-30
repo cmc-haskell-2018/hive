@@ -5,3 +5,4 @@ extra-deps:
 - gloss-juicy-0.2.2
 - containers-0.5.11.0
 - deepseq-1.4.3.0
+- stm-lifted-0.1.1.0

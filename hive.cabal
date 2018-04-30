@@ -66,6 +66,8 @@ executable bot-vs-bot
   build-depends:       base				 
                      , hive
                      , gloss
+                     , stm
+                     , stm-lifted
   default-language:    Haskell2010
 
 test-suite hive-test
