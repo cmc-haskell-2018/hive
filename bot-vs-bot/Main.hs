@@ -18,7 +18,7 @@ main = do
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
-    fps     = 1      -- кол-во кадров в секунду
+    fps     = 5      -- кол-во кадров в секунду
     
     bot1 = futurePlusPrinciplesBot 2 [getCloser 1, getCloser 2, bringIn Ant, bringIn Beetle, bringIn Hopper]
     bot2 = futurePlusPrinciplesBot 0 []
