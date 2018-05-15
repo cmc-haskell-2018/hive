@@ -6,7 +6,7 @@ import Hive.Config
 import Hive.Control.Moves
 import qualified Data.Map as Map
 import Data.Maybe
-
+--import Hive.DataBase
 
 -- =========================================
 -- Перемещение фишек
@@ -94,8 +94,7 @@ putInsect :: Piece -> Coord -> Board -> Board
 putInsect piece coord board
   | Map.member coord board = Map.adjust (piece:) coord board
   | otherwise = Map.insert coord [piece] board
-
-
+  
 -- =========================================
 -- По мелочи
 -- =========================================

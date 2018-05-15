@@ -48,7 +48,6 @@ loadImages = sequenceA $ loadPieceImage <$> allImageNames
 --  , gameStepBeige = First -- первый ход бежевого
 --  }
 
-
 -- | Начальное состояние игры
 initGame :: IO Game
 initGame = gameWithImages <$> loadImages

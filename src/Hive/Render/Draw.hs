@@ -15,18 +15,18 @@ import Graphics.Gloss
 
 
 -- | Рисуем всё
-drawGame :: Game -> Picture
+drawGame :: Game -> IO Picture
 drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
-            , gamePlayer = player} = pictures
-  [ drawAllInsects board
-  , drawEnding maybeEnding
-  , drawMovable movable
-  , drawMove maybeEnding player
-  , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
-  , drawDemand game
-  , drawPossibleMoves game
-  , drawAboutToLose game
-  ]
+            , gamePlayer = player} = return $ pictures
+                                         [ drawAllInsects board
+                                         , drawEnding maybeEnding
+                                         , drawMovable movable
+                                         , drawMove maybeEnding player
+                                         , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
+                                         , drawDemand game
+                                         , drawPossibleMoves game
+                                         , drawAboutToLose game
+                                         ]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
 drawPossibleMoves :: Game -> Picture
