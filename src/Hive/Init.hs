@@ -18,7 +18,7 @@ import Data.Foldable
 allImageNames :: [String]
 allImageNames = fmap (++)
   (show <$> [Beige .. Black]) <*>
-  (show <$> [Queen .. Ant])
+  (show <$> [Queen .. Mosquito])
 
 -- | Загрузка изображения фишки в нужном масштабе.
 loadPieceImage :: String -> IO Picture
@@ -78,18 +78,22 @@ createPieces pic = Map.fromList
   , ((-x, 6), [(Beige, Ant, t 4)])
   , ((-x, 8), [(Beige, Ant, t 4)])
   , ((-x, 10), [(Beige, Ant, t 4)])
+  , ((-x, 12), [(Beige, LadyBug, t 5)])
+  , ((-x, 14), [(Beige, Mosquito, t 6)])
 
-  , ((x, -10), [(Black, Queen, t 5)])
-  , ((x, -8), [(Black, Spider, t 6)])
-  , ((x, -6), [(Black, Spider, t 6)])
-  , ((x, -4), [(Black, Beetle, t 7)])
-  , ((x, -2), [(Black, Beetle, t 7)])
-  , ((x, 0), [(Black, Hopper, t 8)])
-  , ((x, 2), [(Black, Hopper, t 8)])
-  , ((x, 4), [(Black, Hopper, t 8)])
-  , ((x, 6), [(Black, Ant, t 9)])
-  , ((x, 8), [(Black, Ant, t 9)])
-  , ((x, 10), [(Black, Ant, t 9)])]
+  , ((x, 14), [(Black, Mosquito, t 13)])
+  , ((x, 12), [(Black, LadyBug, t 12)]) 
+  , ((x, -10), [(Black, Queen, t 7)])
+  , ((x, -8), [(Black, Spider, t 8)])
+  , ((x, -6), [(Black, Spider, t 8)])
+  , ((x, -4), [(Black, Beetle, t 9)])
+  , ((x, -2), [(Black, Beetle, t 9)])
+  , ((x, 0), [(Black, Hopper, t 10)])
+  , ((x, 2), [(Black, Hopper, t 10)])
+  , ((x, 4), [(Black, Hopper, t 10)])
+  , ((x, 6), [(Black, Ant, t 11)])
+  , ((x, 8), [(Black, Ant, t 11)])
+  , ((x, 10), [(Black, Ant, t 11)])]
   where
     x = cellDistance + numberOfPieces + 1
     t = takePic pic

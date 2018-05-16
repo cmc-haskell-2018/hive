@@ -25,6 +25,8 @@ possibleMoves Game{gameBoard = board, gameMovable = Just((x,y), (player, ins,_))
   | ins == Beetle = beetle_cells (x,y) board
   | ins == Hopper = hopper_cells (x,y) board
   | ins == Ant = antMoves (x, y) board
+  | ins == LadyBug = ladyBugMoves (x, y) board
+  | ins == Mosquito = mosquitoMoves (x, y) board
   | otherwise = spiderMoves (x, y) board
  where
   step = if player == Beige then stepBeige else stepBlack
@@ -151,12 +153,101 @@ beetle_cells (x,y) board = coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coo
                                                               then [(x-1,y-1)] else [] 
     coord6 = if Map.member (x-1, y+1) board || Map.member (x, y+2) board || Map.member (x-1, y-1) board
                                                               then [(x-1,y+1)] else [] 
+-- ======================================
+-- Божья коровка
+-- ======================================
+ladyBugMoves :: Coord -> Board -> [Coord] -- Запуск подбора ходов
+ladyBugMoves coord board = ladyStep 0 coord board [coord]
 
+ladyStep :: Int -> Coord -> Board -> [Coord] -> [Coord] -- Рекурсивный выбор клеток
+ladyStep 3 coord _ place = if not (elem coord place) then [coord] else []
+ladyStep 2 (x, y) board place = nub $ collectUpE ++ collectUpLeftE ++ collectUpRightE ++
+                          collectDownE ++ collectDownLeftE ++ collectDownRightE
+  where
+    isEmpty c = Map.notMember c board    -- пустая ли клетка
+    up = (x, y+2)    -- верхняя клетка
+    upLeft = (x-1, y+1)    -- верхняя левая клетка
+    upRight = (x+1, y+1)   -- верхняя правая клетка
+    down = (x, y-2)    -- нижняя клетка
+    downLeft = (x-1, y-1)    -- нижняя левая клетка
+    downRight = (x+1, y-1)    -- нижняя правая клетка
 
--- =========================================
+    collectUpE = if isEmpty up then ladyStep 3 up board place else []
+    collectUpLeftE = if isEmpty upLeft then ladyStep 3 upLeft board place else []
+    collectUpRightE = if isEmpty upRight then ladyStep 3 upRight board place else []
+    collectDownE = if isEmpty down then ladyStep 3 down board place else []
+    collectDownLeftE = if isEmpty downLeft then ladyStep 3 downLeft board place else []
+    collectDownRightE = if isEmpty downRight then ladyStep 3 downRight board place else []
+
+ladyStep n (x, y) board place = nub $ collectUpF ++ collectUpLeftF ++ collectUpRightF ++
+                          collectDownF ++ collectDownLeftF ++ collectDownRightF 
+  where
+    isFull c = Map.member c board    -- заполнена ли клетка
+    up = (x, y+2)    -- верхняя клетка
+    upLeft = (x-1, y+1)    -- верхняя левая клетка
+    upRight = (x+1, y+1)   -- верхняя правая клетка
+    down = (x, y-2)    -- нижняя клетка
+    downLeft = (x-1, y-1)    -- нижняя левая клетка
+    downRight = (x+1, y-1)    -- нижняя правая клетка 
+
+    collectUpF = if isFull up then ladyStep (n+1) up board place else [] 
+    collectUpLeftF = if isFull upLeft then ladyStep (n+1) upLeft board place else []
+    collectUpRightF = if isFull upRight then ladyStep (n+1) upRight board place else []
+    collectDownF = if isFull down then ladyStep (n+1) down board place else []
+    collectDownLeftF = if isFull downLeft then ladyStep (n+1) downLeft board place else []
+    collectDownRightF = if isFull downRight then ladyStep (n+1) downRight board place else []
+
+    
+-- =====================================
+-- Комар, или москит
+-- ======================================
+mosquitoMoves :: Coord -> Board -> [Coord]
+mosquitoMoves (x, y) board = nub $ neighborUp ++ neighborUpLeft ++
+                             neighborUpRight ++ neighborDown ++
+                             neighborDownLeft ++ neighborDownRight
+  where
+    isFull c = Map.member c board    -- заполнена ли клетка
+    up = (x, y+2)    -- верхняя клетка
+    upLeft = (x-1, y+1)    -- верхняя левая клетка
+    upRight = (x+1, y+1)   -- верхняя правая клетка
+    down = (x, y-2)    -- нижняя клетка
+    downLeft = (x-1, y-1)    -- нижняя левая клетка
+    downRight = (x+1, y-1)    -- нижняя правая клетка
+    -- pieces coord = fromMaybe [] $ Map.lookup coord board 
+    -- top coord = head pieces coord
+    takeIns :: Piece -> Insect
+    takeIns (_,ins,_) = ins
+    neighborUp = if isFull up 
+      then neighbor (takeIns (head (fromMaybe [] $ Map.lookup up board))) (x, y) board 
+      else []
+    neighborUpLeft = if isFull upLeft 
+      then neighbor (takeIns (head (fromMaybe [] $ Map.lookup upLeft board))) (x, y) board 
+      else []
+    neighborUpRight = if isFull upRight 
+      then  neighbor (takeIns (head (fromMaybe [] $ Map.lookup upRight board))) (x, y) board 
+      else []
+    neighborDown = if isFull down 
+      then neighbor (takeIns (head (fromMaybe [] $ Map.lookup down board))) (x, y) board 
+      else []
+    neighborDownLeft = if isFull downLeft 
+      then neighbor (takeIns (head (fromMaybe [] $ Map.lookup downLeft board))) (x, y) board
+      else []
+    neighborDownRight = if isFull downRight 
+      then neighbor (takeIns (head (fromMaybe [] $ Map.lookup downRight board))) (x, y) board 
+      else []
+    
+neighbor :: Insect -> Coord -> Board -> [Coord]
+neighbor ins (x, y) board
+  | ins == Queen  = queen_cells (x,y) board
+  | ins == Beetle = beetle_cells (x,y) board
+  | ins == Hopper = hopper_cells (x,y) board
+  | ins == Ant = antMoves (x, y) board
+  | ins == LadyBug = ladyBugMoves (x, y) board
+  | ins == Spider = spiderMoves (x, y) board
+  | otherwise = []
+
 -- Все, что относится к пауку
 -- =========================================
-
 
 -- | Возможные ходы для паука
 spiderMoves :: Coord -> Board -> [Coord]

@@ -10,7 +10,7 @@ import Graphics.Gloss.Data.Picture
 
 
 -- | Насекомые
-data Insect = Queen | Spider | Beetle | Hopper | Ant
+data Insect = Queen | Spider | Beetle | Hopper | Ant | LadyBug | Mosquito
   deriving (Show, Eq, Enum)
   
 -- | Координаты клетки
