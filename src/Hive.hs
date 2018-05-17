@@ -23,7 +23,6 @@ runHive = do
 -- Модель игры
 -- =========================================
 
-
 -- | Насекомые
 data Insect = Queen | Spider | Beetle | Hopper | Ant
   deriving (Show, Eq, Enum)
@@ -56,17 +55,10 @@ data Ending = Win Player | Tie
 -- | Контроль количества шагов
 data Step = First | Second | Third | Fours | Other 
   deriving (Enum, Eq)
-
--- | картинки 
--- data Images = Images 
--- { imageStartMenu :: Picture
---   imageQuestion :: Picture
--- }
-
--- | Тип игры - ИИ, 2 игрока
-data GameType = AIGame | PlayersGame
-  deriving(Eq, Show)
-data GameMode = StartMenu | HelpMode | Default
+  
+data GameMode = Start1 | Start2 | Start3 | Start4 |Start5 |Start6 |
+                HelpMode | Default |QueenButton | AntButton | HopperButton | BeetleButton | SpiderButton |
+                RulesButton1 | RulesButton2 | RulesButton3 | Next
   deriving(Eq, Show)
 
 -- | Состояние игры
@@ -99,13 +91,13 @@ gameWithImages images  = Game
   , gameEnding = Nothing    -- игра не окончена
   , gameStepBlack = First -- первый ход черного
   , gameStepBeige = First -- первый ход бежевого
-  , gameMode  = Default 
+  , gameMode  = Start1 
   , imgs = images2
   }
   where
     n = numberOfPieces
-    images1 = takeNlist images 10 
-    images2 = reverse (takeNlist (reverse images) 2 )
+    images1 = takeNlist images insImgCount
+    images2 = reverse (takeNlist (reverse images) interfaceImgCount )
 -- |берет первые n элементов списка
 takeNlist :: [Picture] -> Int -> [Picture]
 takeNlist [] _ = []
@@ -208,21 +200,7 @@ loadImages = listToIO list
 drawGame :: Game -> Picture
 drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = movable
             , gamePlayer = player, gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images } 
-  | stepBlack == First && stepBeige == First = pictures
-  [ --drawAllCells board,
- -- 	drawStartMenu game
-    drawAllInsects board
-  , drawEnding maybeEnding
-  , drawMovable movable
-  , drawMove maybeEnding player
-  , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
-  , drawDemand stepBeige stepBlack player maybeEnding movable
-  , drawPossibleMoves game
-  , drawQuestion (head images)
-  , drawMode game
-  ]
-  
-  |otherwise = pictures
+  = pictures
   [ --drawAllCells board,
     drawAllInsects board
   , drawEnding maybeEnding
@@ -231,22 +209,47 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
   , drawInsBeetle board  -- рисует окружности на верхней фишке, кол-во окружностей кол-во жуков в стопке фишек. (максимум 5 = 4 жука + любое насекомое) 
   , drawDemand stepBeige stepBlack player maybeEnding movable
   , drawPossibleMoves game
+  , drawMode mode images
   , drawQuestion (head images)
-  , drawMode game
+  , drawPointer mode images
   ]
 
-drawMode :: Game -> Picture
-drawMode game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images } 
-  | mode == HelpMode =  drawHelpPanel  ( takePic  images  1 )  
+drawPointer :: GameMode -> [Picture] -> Picture
+drawPointer mode images
+ | mode == RulesButton1 || mode == RulesButton2 || mode == RulesButton3  = pictures [translate 650 40 $ scale 0.9 0.9 $  image]
+ | otherwise = blank
+  where
+    image = takePic  images  2
+
+drawQuestion ::Picture ->  Picture 
+drawQuestion image = pictures [translate 770 370 $ scale 0.7 0.7 $  image]
+
+
+drawMode :: GameMode -> [Picture] -> Picture
+drawMode mode images  
+  | mode == HelpMode =  drawHelpPanel  ( takePic  images  1)
+  | mode == RulesButton1 = drawPanel ( takePic  images  3)
+  | mode == RulesButton2 = drawPanel (takePic images 4)
+  | mode == RulesButton3 = drawPanel (takePic images 5)
+  | mode == QueenButton =  drawPanel (takePic images 6)
+  | mode == BeetleButton = drawPanel (takePic images 7)
+  | mode == HopperButton = drawPanel (takePic images 8)
+  | mode == AntButton = drawPanel (takePic images 9)
+  | mode == SpiderButton = drawPanel (takePic images 10)
+  | mode == Start1 = drawPanel (takePic images 11)
+  | mode == Start2 = drawPanel (takePic images 12)
+  | mode == Start3 = drawPanel (takePic images 13)
+  | mode == Start4 = drawPanel (takePic images 14)
+  | mode == Start5 = drawPanel (takePic images 15)
+  | mode == Start6 = drawPanel (takePic images 16)
   | otherwise = blank 
 
---drawHelpPanel ( takePic  pics  2 )  
-checkHelp :: GameMode -> Bool
-checkHelp mode
-  | mode == HelpMode = True 
-  | otherwise = False
 
+drawRulesbut :: Picture -> Picture
+drawRulesbut pic = pictures [scale 5 5 $ pic] 
 
+drawPanel :: Picture -> Picture
+drawPanel pic = pictures [scale 6.1 6.1 $ pic]
 
 drawHelpPanel :: Picture -> Picture
 drawHelpPanel pic = pictures [scale 4 4 $ pic]
@@ -374,11 +377,6 @@ drawInsect ((x, y), ((_, _, pic):_)) =
     kx = fromIntegral (cellSizeX * x)
     ky = fromIntegral (cellSizeY * y)
 
--- | Рисуем вопросительны знак
--- screenWidth ширина экрана
-drawQuestion ::Picture ->  Picture 
-drawQuestion image = pictures [translate 770 370 $ scale 0.7 0.7 $  image]
-
 -- | Рисуем конец игры
 drawEnding :: Maybe Ending -> Picture
 drawEnding Nothing = blank
@@ -393,24 +391,28 @@ endingText Tie = "It's a Tie:)"
 endingText (Win Black) = "Black Team Won"
 endingText (Win Beige) = "Beige Team Won"
 
--- | Стартовое меню
--- drawStartMenu Game -> Picture
--- drawStartMenu game = pictures
--- 	[trunslate 0 0 image
--- 	,trunslate x y (scale r r ())
-
 -- =========================================
 -- Перемещение фишек
 -- =========================================
-
--- | isJust (gameStart game)  = menuHandle game mouse -- если стартоовое состояние игры 
-
+   
 -- | Обработка нажатия клавиш мыши
+
 handleGame :: Event -> Game -> Game
-handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game
+handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game @Game{gameMode = mode}
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
-  | (isHelp mouse) = changeGame game
+  | isHelp mouse = game{gameMode = HelpMode}
+  | mode == Start1 || mode == Start2 || mode == Start3 || mode == Start4 || mode == Start5 || mode == Start6 = game {gameMode = getMode mouse mode}   
+  | mode == HelpMode && isRulesButton mouse = game {gameMode = RulesButton1}
+  | isPointer mouse = game {gameMode = chose mode} -- в режиме RulesButton перелистывать правила
+  | isCloseHelpPanel mouse = game{gameMode = Default}
+  | isCloseHelpPanel1 mouse = game{gameMode = HelpMode} 
+  | mode == HelpMode &&  isQueenBut mouse = game{gameMode = QueenButton}
+  | mode == HelpMode && isAntBut mouse = game{gameMode = AntButton}
+  | mode == HelpMode && isBeetleBut mouse =game{gameMode = BeetleButton}
+  | mode == HelpMode && isSpiderBut mouse =game{gameMode = SpiderButton}
+  | mode == HelpMode && isHopperBut mouse =game{gameMode = HopperButton}
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
+  | mode == Start1  = game {gameMode = getMode mouse mode} 
   | otherwise = checkWinner $ shiftGame $ 
         makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- положить фишку обратно
@@ -419,34 +421,60 @@ handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- поло�
   | otherwise = putPieceBack game       -- фишка взята, кладем ее на место
 handleGame _ game = game
 
--- | обработка событий в стартовом меню
--- menuHandle :: Game -> Point -> Game
--- menuHandle game mouse
---   | (isSelectAIMode mouse) = game -- переход в режим AI
---   | (isSelectPlayersMode mouse) = game -- переход в режим 2 игроков
---   | (isSelectRules mouse) = 
--- | проверка нажатия
+isQueenBut :: Point -> Bool
+isQueenBut (x,y) =  x > -170 && x < 70 && y > 100 && y < 140
+
+isAntBut :: Point -> Bool
+isAntBut (x,y) =    x > -175 && x < 70 && y > 30 && y < 80
+
+isHopperBut :: Point -> Bool
+isHopperBut (x,y) = x > -170 && x < 70 && y > -40 && y < 10
+
+isBeetleBut :: Point ->Bool
+isBeetleBut (x,y) = x > -170 && x < 70 && y > -115 && y < -65
+
+isSpiderBut :: Point ->Bool 
+isSpiderBut (x,y) = x > -170 && x < 70 && y > -175 && y < -130
+
+
+isPointer :: Point -> Bool
+isPointer (x,y) = x > 630 && x < 670 && y > 20 && y < 60 
+
+isRulesButton :: Point -> Bool
+isRulesButton (x,y) = x > -170 && x < 95 && y > 160 && y < 215 
+
+chose :: GameMode -> GameMode
+chose mode
+  | mode == RulesButton1 = RulesButton2
+  | mode == RulesButton2 = RulesButton3 
+  | otherwise = RulesButton1
+
+getMode :: Point-> GameMode -> GameMode
+getMode (x,y) oldmode
+  | x > -300 && x < -280 && y > 205  && y < 225  = Start2 
+  | x > -235 && x < -215 && y > 155  && y < 175  = Start3
+  | x >  30  && x <  50  && y > 155  && y < 175  = Start4
+  | x > -300 && x < -280 && y > 90   && y < 110  = Start5
+  | x > -300 && x < -280 && y > 20   && y < 40   = Start6
+  | x >  120 && x <  140 && y > -250 && y < -230 = Default
+  | otherwise = oldmode
+
 isHelp :: Point -> Bool
 isHelp (x,y)  = x > 700 && x < 850 &&  y > 300 && y < 450 
---isHelp (x,y)  = (y > 700) && (y < 850) &&  (x > 300) && (x < 450) 
 
---showHelp (x, y) = 610 < x && x < 670 && 350 < y && y < 450
+-- | закрывает первую панель 
+isCloseHelpPanel :: Point -> Bool 
+isCloseHelpPanel (x,y) =  x > 115 && x < 155 && y > 160 && y < 200
 
-
+isCloseHelpPanel1 :: Point -> Bool
+isCloseHelpPanel1 (x,y) = x > 530 && x < 570 && y > 280 && y < 320
 
 -- | показать панель правил
-changeGame :: Game -> Game
-changeGame  game@Game{gamePlayer = player, gameBoard = board, gameMovable = gameMov, gameEnding = gameEnd,  gameStepBeige = stepBeige, gameStepBlack = stepBlack, gameMode = mode, imgs = images }=
- Game{  
-    gameBoard = board
-  , gamePlayer = player
-  , gameMovable = gameMov
-  , gameEnding=gameEnd
-  , gameStepBeige = stepBeige
-  , gameStepBlack = stepBlack
-  , gameMode = HelpMode 
-  , imgs = images
-}
+changeGame :: Int -> Game -> Game
+changeGame n game 
+  | n == 0 = game {gameMode = Default}
+  | n == 1 = game {gameMode = HelpMode} 
+  | otherwise = game {gameMode = Default}
 
 -- | Положить фишку на место
 putPieceBack :: Game -> Game
@@ -1034,6 +1062,11 @@ cellDistance = 4
 pieceWidth :: Int
 pieceWidth = 500
 
+interfaceImgCount :: Int 
+interfaceImgCount = 17
+
+insImgCount :: Int
+insImgCount = 10
 -- | Список всех имен изображений
 allImageNames :: [String]
 allImageNames = fmap (++)
@@ -1041,5 +1074,5 @@ allImageNames = fmap (++)
   (show <$> [Queen .. Ant])
 
 allHelpImageNames :: [String]
-allHelpImageNames = ["1question", "2"]
+allHelpImageNames = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11","12","13","14","15","16","17" ]
 --allHelpImageNames = ["queen", "hopper", "ant", "beetle", "spider", "question", "help1","help2","help3","help4","help5","help6","help7"]
