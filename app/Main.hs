@@ -25,28 +25,13 @@ handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- поло�
   | gameMovable game == Nothing = return $ game    -- фишка еще не взята, отменять нечего
   | otherwise = return $ putPieceBack game       -- фишка взята, кладем ее на место
 handleGame (EventKey (SpecialKey KeyEnter) Down _ _) game = do saveGame game; return game -- сохранить игру
-handleGame (EventKey (SpecialKey KeyTab) Down _ _) gameOld = do putStrLn "Game load.";    -- загрузить последнюю игру 
+handleGame (EventKey (SpecialKey KeyTab) Down _ _) _ = do putStrLn "Game load.";    -- загрузить последнюю игру 
                                                                 database <- openLocalStateFrom "HiveDatabase/" (Database []);
                                                                 game <- query database GetGame;
                                                                 closeAcidState database;
-                                                                return Game { gameBoard = gameBoard gameOld,
-                                                                              gamePlayer = player game,
-                                                                              gameMovable = gameMovable gameOld,
-                                                                              gameEnding = ending game,
-                                                                              gameStepBlack = stepBlack game,
-                                                                              gameStepBeige = stepBeige game
-                                                                            } 
+                                                                initNewGame game 
 handleGame _ game = return game
 
 -- | Обновление игры.
 updateGame :: Float -> Game -> IO Game
 updateGame _ = return;
-
---addPicturesInMovable :: Maybe ((Int, Int),(Player, Insect)) -> Maybe ((Int, Int),(Player, Insect, Picture))
---addPicturesInMovable Nothing = Nothing 
---addPicturesInMovable (Just ((i, j), (pl, ins))) = (Just ((i, j), (pl, ins, (pic pl ins))))
---       where pic :: Player -> Insect -> Picture
---             pic _ _ = getImages <$> loadImages
---             
---             getImages :: [Picture] -> Picture
---             getImages images = takePic images 0
