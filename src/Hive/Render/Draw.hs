@@ -26,6 +26,8 @@ drawGame game@Game{gameBoard = board, gameEnding = maybeEnding, gameMovable = mo
                                          , drawDemand game
                                          , drawPossibleMoves game
                                          , drawAboutToLose game
+                                         , drawFailLoadReason game 
+                                         , drawFailLoadInstructions game
                                          ]
 
 -- | Проверяем, нужно ли рисовать возможные ходы
@@ -167,4 +169,18 @@ drawAboutToLose game
     placeText = (translate (fromIntegral screenWidth / 2 - 460) (fromIntegral screenHeight / 2 - 60)) .
         scale 0.3 0.3
 
+drawFailLoadReason :: Game -> Picture
+drawFailLoadReason game
+  | null (gameBoard game) = placeText $ text "You don't have a saved game."
+  | otherwise = blank
+  where
+    placeText = (translate (fromIntegral screenWidth / 2 - 800) (fromIntegral screenHeight / 2 - 350)) .
+        scale 0.3 0.3
 
+drawFailLoadInstructions :: Game -> Picture
+drawFailLoadInstructions game
+  | null (gameBoard game) = placeText $ text "Please, restart the Hive."
+  | otherwise = blank
+  where
+    placeText = (translate (fromIntegral screenWidth / 2 - 750) (fromIntegral screenHeight / 2 - 450)) .
+        scale 0.3 0.3

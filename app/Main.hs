@@ -5,7 +5,7 @@ import Graphics.Gloss.Interface.IO.Game
 
 main :: IO ()
 main = do game <- initGame;
-          saveGame game;
+--          saveGame game;
           playIO display bgColor fps game drawGame handleGame updateGame
             where
              display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
@@ -25,11 +25,7 @@ handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- поло�
   | gameMovable game == Nothing = return $ game    -- фишка еще не взята, отменять нечего
   | otherwise = return $ putPieceBack game       -- фишка взята, кладем ее на место
 handleGame (EventKey (SpecialKey KeyEnter) Down _ _) game = do saveGame game; return game -- сохранить игру
-handleGame (EventKey (SpecialKey KeyTab) Down _ _) _ = loadGame --do putStrLn "Game load.";    -- загрузить последнюю игру 
-                                                         --       database <- openLocalStateFrom "HiveDatabase/" (Database []);
-                                                           --     game <- query database GetGame;
-                                                             --   closeAcidState database;
-                                                               -- initNewGame game 
+handleGame (EventKey (SpecialKey KeyTab) Down _ _) _ = loadGame -- загрузить предыдущую игру 
 handleGame _ game = return game
 
 -- | Обновление игры.

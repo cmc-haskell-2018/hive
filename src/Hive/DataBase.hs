@@ -17,10 +17,7 @@ import Data.SafeCopy
 import Data.Map (toList, fromList)
 import Graphics.Gloss.Data.Picture (Picture)
 import Data.Typeable
---import           System.Environment   (getArgs)
-
---type Message = String
---data Database = Database [Message]
+import System.Environment   (getArgs)
 
 data SaveGame = SaveGame { board :: [((Int, Int), [(Player, Insect)])]
                          , player :: Player
@@ -28,7 +25,8 @@ data SaveGame = SaveGame { board :: [((Int, Int), [(Player, Insect)])]
                          , ending :: Maybe Ending
                          , stepBeige :: Step
                          , stepBlack :: Step
-                         } deriving (Show, Typeable)
+                         , userName :: String
+                         } deriving (Show, Typeable, Eq)
 
 data Database = Database { all :: [SaveGame] }
   deriving (Typeable)
@@ -41,33 +39,35 @@ $(deriveSafeCopy 0 'base ''Step)
 $(deriveSafeCopy 0 'base ''SaveGame)
 $(deriveSafeCopy 0 'base ''Database)
 
--- Transactions are defined to run in either the 'Update' monad
--- or the 'Query' monad.
 addGame :: SaveGame -> Update Database ()
 addGame msg
     = do Database messages <- get
          put $ Database (msg:messages)
 
---viewMessages :: Int -> Query Database [SaveGame]
---viewMessages limit
---    = do Database messages <- ask
---         return $ take limit messages
+getGame :: String -> Query Database SaveGame
+getGame name
+    = do Database messages <- ask;
+         if ( (filter (\x -> (userName x) == name) (take 1000 messages)) /= [] )
+         then return $ head ((filter (\x -> (userName x) == name) (take 1000 messages)))
+         else return SaveGame { board = []
+                              , player = Beige
+                              , movable = Nothing
+                              , ending = Nothing
+                              , stepBeige = First
+                              , stepBlack = First
+                              , userName = ""
+                              } 
 
-getGame :: Query Database SaveGame
-getGame 
-    = do Database messages <- ask
-         return $ head (take 1 messages)
-
--- This will define @GetGame@ and @AddGame@ for us.
 $(makeAcidic ''Database ['addGame, 'getGame])
 
-modify :: Game -> SaveGame
-modify game = SaveGame { board = delPicturesInBoard (toList (gameBoard game)) []
+modify :: Game -> String -> SaveGame
+modify game name = SaveGame { board = delPicturesInBoard (toList (gameBoard game)) []
                     , player = gamePlayer game
                     , movable = delPicturesInMovable (gameMovable game)
                     , ending = gameEnding game
                     , stepBeige = gameStepBeige game
                     , stepBlack = gameStepBlack game
+                    , userName = name
                     } 
 
 delPicturesInBoard :: [((Int, Int), [(Player, Insect, Picture)])] -> [((Int, Int), [(Player, Insect)])] -> [((Int, Int), [(Player, Insect)])]
@@ -87,29 +87,24 @@ delPicturesInMovable Nothing = Nothing
 delPicturesInMovable (Just ((i, j), (pl, ins, _))) = (Just ((i, j), (pl, ins)))
 
 saveGame :: Game -> IO()
-saveGame game = do { --args <- getArgs
-                        putStrLn "Game saved.";
+saveGame game = do {    args <- getArgs;
                         database <- openLocalStateFrom "HiveDatabase/" (Database []);
-                        update database (AddGame (modify game));
-                        gameInBase <- query database GetGame;
-                        putStrLn "Last save game:";
-                        mapM_ putStrLn [ "board " ++ (show (board gameInBase))];
-                        mapM_ putStrLn [ "player " ++ (show (player gameInBase)) ++ " stepBlack " ++ (show (stepBlack gameInBase)) ++ " stepBeige " ++ (show (stepBeige gameInBase)) ];
+                        update database (AddGame (modify game (unwords args)));
+                        gameInBase <- query database (GetGame (unwords args));
+                        putStrLn ("Game saved. User name: " ++ show (userName gameInBase));
+--                        putStrLn "Last save game:";
+--                        mapM_ putStrLn [ "board " ++ (show (board gameInBase))];
+--                        mapM_ putStrLn [ "user_name " ++ (show (userName gameInBase)) ++ " player " ++ (show (player gameInBase)) ++ " stepBlack " ++ (show (stepBlack gameInBase)) ++ " stepBeige " ++ (show (stepBeige gameInBase)) ];
                         closeAcidState database
---                        if null args
---                        then do messages <- query database (ViewMessages 10)
---                                putStrLn "Last 10 messages:"
---                                mapM_ putStrLn [ "  " ++ message | message <- messages ]
---                        else do update database (AddGame ("ddddddddd"))
---                                putStrLn "Your message has been added to the database."
                       }
 
 loadGame :: IO Game
-loadGame = do { putStrLn "Game load.";
+loadGame = do { args <- getArgs;
                 database <- openLocalStateFrom "HiveDatabase/" (Database []);
-                game <- query database GetGame;
+                game <- query database (GetGame (unwords args));
                 closeAcidState database;
-                initNewGame game
+                putStrLn "Game load.";
+                initNewGame game;
               }
 
 -- | Инициализация ! после загрузки !
