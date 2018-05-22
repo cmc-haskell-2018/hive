@@ -40,7 +40,7 @@ data Ending = Win Player | Tie deriving (Eq, Show)
 
 -- | Контроль количества шагов
 data Step = First | Second | Third | Fours | Other 
-  deriving (Enum, Eq, Show)
+  deriving (Enum, Eq, Show) 
 
 -- | Состояние игры
 data Game = Game
@@ -49,5 +49,6 @@ data Game = Game
   , gameMovable :: Maybe Movable  -- Nothing - никакая фишка не перемещается, иначе - указана перемещаемая фишка.
   , gameEnding :: Maybe Ending    -- Nothing - игра не окончена.
   , gameStepBlack :: Step -- Номер хода черного игрока 
-  , gameStepBeige :: Step -- Номер хода бежевого игрока 
+  , gameStepBeige :: Step -- Номер хода бежевого игрока
+  , gameUserName :: String
   } deriving (Show)

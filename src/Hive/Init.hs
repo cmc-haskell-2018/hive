@@ -48,19 +48,22 @@ loadImages = sequenceA $ loadPieceImage <$> allImageNames
 --  }
 
 -- | Начальное состояние игры
-initGame :: IO Game
-initGame = gameWithImages <$> loadImages
+initGame :: String -> IO Game
+initGame userName = (gameWithImages userName) <$> loadImages
 
 -- | Инициализировать экран с заданными изображениями
-gameWithImages :: [Picture] -> Game
-gameWithImages images = Game
+gameWithImages :: String -> [Picture] -> Game
+gameWithImages userName images = Game
   { gameBoard  = createPieces images    -- клеточки по краям
   , gamePlayer = Beige    -- первый игрок ходит бежевыми
   , gameMovable = Nothing    -- фишка пока что не перемещается
   , gameEnding = Nothing    -- игра не окончена
   , gameStepBlack = First -- первый ход черного
   , gameStepBeige = First -- первый ход бежевого
-  }
+  , gameUserName = checkName userName -- имя пользователя
+  } where checkName name 
+                         | name == "" = "Unknown"
+                         | otherwise = name
 
 -- | Создаем список из клеток, в которых вначале находятся фишки
 createPieces :: [Picture] -> Board

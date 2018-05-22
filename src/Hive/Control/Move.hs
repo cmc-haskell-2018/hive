@@ -38,7 +38,7 @@ putPieceBack game = game    -- чтобы компилятор не ругалс
 
 -- | Взять фишку с координатами под мышкой, если возможно
 takePiece :: Coord -> Game -> Game
-takePiece coord game@Game{gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+takePiece coord game@Game{gameUserName = userName, gamePlayer = player, gameBoard = board, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
   | pieces == [] = game     -- фишки с такими координатами нет
   | pieceColor top /= player = game
   | checkQueenStep movable = newGame
@@ -52,6 +52,7 @@ takePiece coord game@Game{gamePlayer = player, gameBoard = board, gameStepBeige 
       , gameEnding = Nothing
       , gameStepBlack = stepBlack
       , gameStepBeige = stepBeige
+      , gameUserName = userName
       }
     step = if player == Black then stepBlack else stepBeige
     pieces = fromMaybe [] $ Map.lookup coord board    -- список фишек в клетке с нужными координатами
@@ -71,7 +72,7 @@ deleteInsect coord board
 
 -- | Сделать ход, если возможно
 makeMove :: Coord -> Game -> Game
-makeMove coord game@Game{gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+makeMove coord game@Game{gameUserName = userName, gamePlayer = player, gameBoard = board, gameMovable = Just movable, gameStepBeige = stepBeige, gameStepBlack = stepBlack}
    | (elem coord (possibleMoves game)) = checkWinner $ shiftGame Game    -- если выбранный ход возможен
      { gamePlayer = switchPlayer player
      , gameBoard = putInsect (snd movable) coord board
@@ -79,6 +80,7 @@ makeMove coord game@Game{gamePlayer = player, gameBoard = board, gameMovable = J
      , gameEnding = Nothing
      , gameStepBlack = if player == Black then nextStep stepBlack else stepBlack
      , gameStepBeige = if player == Beige then nextStep stepBeige else stepBeige
+     , gameUserName = userName
      }
    | otherwise = game    -- если выбранный ход невозможен
      where 

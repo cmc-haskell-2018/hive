@@ -2,10 +2,11 @@ module Main where
 
 import Hive
 import Graphics.Gloss.Interface.IO.Game
+import System.Environment   (getArgs)
 
 main :: IO ()
-main = do game <- initGame;
---          saveGame game;
+main = do args <- getArgs
+          game <- initGame (unwords args);
           playIO display bgColor fps game drawGame handleGame updateGame
             where
              display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
@@ -25,7 +26,7 @@ handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- поло�
   | gameMovable game == Nothing = return $ game    -- фишка еще не взята, отменять нечего
   | otherwise = return $ putPieceBack game       -- фишка взята, кладем ее на место
 handleGame (EventKey (SpecialKey KeyEnter) Down _ _) game = do saveGame game; return game -- сохранить игру
-handleGame (EventKey (SpecialKey KeyTab) Down _ _) _ = loadGame -- загрузить предыдущую игру 
+handleGame (EventKey (SpecialKey KeyTab) Down _ _) game = loadGame (gameUserName game) -- загрузить предыдущую игру 
 handleGame _ game = return game
 
 -- | Обновление игры.
