@@ -55,10 +55,19 @@ data Ending = Win Player | Tie
 -- | Контроль количества шагов
 data Step = First | Second | Third | Fours | Other 
   deriving (Enum, Eq)
+
+data GameTypeChoice
+  = NoGameType                  -- ^ Режим игры не выбран.
+  | GameTypeAIvP (Maybe Player) -- ^ Режим игры компьютер против человека.
+  | GameTypePvP                 -- ...
+  | GameTypeAIvAI
+  deriving (Eq, Show)
   
-data GameMode = Start1 | Start2 | Start3 | Start4 |Start5 |Start6 |
-                HelpMode | Default |QueenButton | AntButton | HopperButton | BeetleButton | SpiderButton |
-                RulesButton1 | RulesButton2 | RulesButton3 | Next
+data GameMode
+  = StartMenu GameTypeChoice
+  | HelpMode
+  | Default | QueenButton | AntButton | HopperButton | BeetleButton | SpiderButton |
+                RulesButton1 | RulesButton2 | RulesButton3
   deriving(Eq, Show)
 
 -- | Состояние игры
@@ -91,7 +100,7 @@ gameWithImages images  = Game
   , gameEnding = Nothing    -- игра не окончена
   , gameStepBlack = First -- первый ход черного
   , gameStepBeige = First -- первый ход бежевого
-  , gameMode  = Start1 
+  , gameMode  = StartMenu NoGameType 
   , imgs = images2
   }
   where
@@ -226,24 +235,25 @@ drawQuestion image = pictures [translate 770 370 $ scale 0.7 0.7 $  image]
 
 
 drawMode :: GameMode -> [Picture] -> Picture
-drawMode mode images  
-  | mode == HelpMode =  drawHelpPanel  ( takePic  images  1)
-  | mode == RulesButton1 = drawPanel ( takePic  images  3)
-  | mode == RulesButton2 = drawPanel (takePic images 4)
-  | mode == RulesButton3 = drawPanel (takePic images 5)
-  | mode == QueenButton =  drawPanel (takePic images 6)
-  | mode == BeetleButton = drawPanel (takePic images 7)
-  | mode == HopperButton = drawPanel (takePic images 8)
-  | mode == AntButton = drawPanel (takePic images 9)
-  | mode == SpiderButton = drawPanel (takePic images 10)
-  | mode == Start1 = drawPanel (takePic images 11)
-  | mode == Start2 = drawPanel (takePic images 12)
-  | mode == Start3 = drawPanel (takePic images 13)
-  | mode == Start4 = drawPanel (takePic images 14)
-  | mode == Start5 = drawPanel (takePic images 15)
-  | mode == Start6 = drawPanel (takePic images 16)
-  | otherwise = blank 
+drawMode mode images = case mode of
+  Default -> blank
 
+  HelpMode ->  drawHelpPanel  ( takePic  images  1)
+  RulesButton1 -> drawPanel ( takePic  images  3)
+  RulesButton2 -> drawPanel (takePic images 4)
+  RulesButton3 -> drawPanel (takePic images 5)
+  QueenButton ->  drawPanel (takePic images 6)
+  BeetleButton -> drawPanel (takePic images 7)
+  HopperButton -> drawPanel (takePic images 8)
+  AntButton -> drawPanel (takePic images 9)
+  SpiderButton -> drawPanel (takePic images 10)
+
+  StartMenu NoGameType -> drawPanel (takePic images 11)
+  StartMenu (GameTypeAIvP Nothing) -> drawPanel (takePic images 12)
+  StartMenu (GameTypeAIvP (Just Beige)) -> drawPanel (takePic images 13)
+  StartMenu (GameTypeAIvP (Just Black)) -> drawPanel (takePic images 14)
+  StartMenu GameTypePvP -> drawPanel (takePic images 15)
+  StartMenu GameTypeAIvAI -> drawPanel (takePic images 16)
 
 drawRulesbut :: Picture -> Picture
 drawRulesbut pic = pictures [scale 5 5 $ pic] 
@@ -397,11 +407,15 @@ endingText (Win Beige) = "Beige Team Won"
    
 -- | Обработка нажатия клавиш мыши
 
+isStartMenu :: GameMode -> Bool
+isStartMenu (StartMenu _) = True
+isStartMenu _ = False
+
 handleGame :: Event -> Game -> Game
 handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game @Game{gameMode = mode}
   | isJust (gameEnding game) = game    -- если игра окончена, ничего сделать нельзя
   | isHelp mouse = game{gameMode = HelpMode}
-  | mode == Start1 || mode == Start2 || mode == Start3 || mode == Start4 || mode == Start5 || mode == Start6 = game {gameMode = getMode mouse mode}   
+  | isStartMenu mode = game {gameMode = handleStartMenu mouse mode}   
   | mode == HelpMode && isRulesButton mouse = game {gameMode = RulesButton1}
   | isPointer mouse = game {gameMode = chose mode} -- в режиме RulesButton перелистывать правила
   | isCloseHelpPanel mouse = game{gameMode = Default}
@@ -412,7 +426,7 @@ handleGame (EventKey (MouseButton LeftButton) Down _ mouse) game @Game{gameMode 
   | mode == HelpMode && isSpiderBut mouse =game{gameMode = SpiderButton}
   | mode == HelpMode && isHopperBut mouse =game{gameMode = HopperButton}
   | isNothing (gameMovable game) = takePiece mouse game    -- фишка еще не взята
-  | mode == Start1  = game {gameMode = getMode mouse mode} 
+  | mode == StartMenu NoGameType  = game {gameMode = handleStartMenu mouse mode} 
   | otherwise = checkWinner $ shiftGame $ 
         makeMove (mouseToCell mouse (gameBoard game)) game    -- фишка уже взята
 handleGame (EventKey (MouseButton RightButton) Down _ _) game       -- положить фишку обратно
@@ -449,13 +463,13 @@ chose mode
   | mode == RulesButton2 = RulesButton3 
   | otherwise = RulesButton1
 
-getMode :: Point-> GameMode -> GameMode
-getMode (x,y) oldmode
-  | x > -300 && x < -280 && y > 205  && y < 225  = Start2 
-  | x > -235 && x < -215 && y > 155  && y < 175  = Start3
-  | x >  30  && x <  50  && y > 155  && y < 175  = Start4
-  | x > -300 && x < -280 && y > 90   && y < 110  = Start5
-  | x > -300 && x < -280 && y > 20   && y < 40   = Start6
+handleStartMenu :: Point-> GameMode -> GameMode
+handleStartMenu (x,y) oldmode
+  | x > -300 && x < -280 && y > 205  && y < 225  = StartMenu (GameTypeAIvP Nothing)
+  | x > -235 && x < -215 && y > 155  && y < 175  = StartMenu (GameTypeAIvP (Just Beige))
+  | x >  30  && x <  50  && y > 155  && y < 175  = StartMenu (GameTypeAIvP (Just Black))
+  | x > -300 && x < -280 && y > 90   && y < 110  = StartMenu GameTypePvP
+  | x > -300 && x < -280 && y > 20   && y < 40   = StartMenu GameTypeAIvAI
   | x >  120 && x <  140 && y > -250 && y < -230 = Default
   | otherwise = oldmode
 
