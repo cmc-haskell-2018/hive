@@ -1,22 +1,35 @@
 {-# OPTIONS_GHC -Wall #-}
 module Hive where
 
-import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Juicy
 import Data.List
 import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Map as Map
+
+import System.Exit (exitSuccess)
+
 -- | Запустить игру
 runHive :: IO ()
 runHive = do
   game <- initGame
-  play display bgColor fps game  drawGame handleGame updateGame
+  playIO display bgColor fps game drawGameIO handleGameIO updateGameIO
 -- play display bgColor fps game drawGame handleGame updateGame
   where
     display = InWindow "Hive" (screenWidth, screenHeight) (0, 0)
     bgColor = white   -- цвет фона
     fps     = 10      -- кол-во кадров в секунду
+
+drawGameIO :: Game -> IO Picture
+drawGameIO = pure . drawGame
+
+updateGameIO :: Float -> Game -> IO Game
+updateGameIO dt = pure . updateGame dt
+
+handleGameIO :: Event -> Game -> IO Game
+handleGameIO (EventKey (SpecialKey KeyEsc) Down _ _) _ = exitSuccess
+handleGameIO event game = pure (handleGame event game)
 
 
 -- =========================================
