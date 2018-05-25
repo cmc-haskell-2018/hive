@@ -3,6 +3,12 @@
 [![Build Status](https://travis-ci.org/cmc-haskell-2018/hive.svg?branch=master)](https://travis-ci.org/cmc-haskell-2018/hive)
 
 Игра «Улей».
+Ветка master - Рабочая версия игры, работает игра против бота и демо-режим
+Ветка new_branch_Nargiz - меню игры
+Ветка darya_branch - сохранение игры при помощи Enter и загрузка при помощи tab
+Сохранения для различных пользователей Различны
+Ветка SaurinIndev - дополнительные насекомые из Правил Hive_Carbon, 
+устранение багов в перемещении Жука.
 
 ## Сборка и запуск
 
