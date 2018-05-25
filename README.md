@@ -3,8 +3,8 @@
 [![Build Status](https://travis-ci.org/cmc-haskell-2018/hive.svg?branch=master)](https://travis-ci.org/cmc-haskell-2018/hive)
 
 Игра «Улей».
-##Последние версии работающих веток
-###Ветка Кати
+## Последние версии работающих веток
+### Ветка Кати
  
 [master](https://github.com/cmc-haskell-2018/hive/tree/master)
  
@@ -12,7 +12,7 @@
 2. Работают 3 режима: человек против бота, бот проти бота и человек против человека
 3. Модульность кода 
 
-###Ветка Наргиз
+### Ветка Наргиз
 
 [new_branch_Nargiz](https://github.com/cmc-haskell-2018/hive/tree/new_branch_Nargiz)
 
@@ -21,7 +21,7 @@
 3. Запуск различных режимов игры (в разработке)
 4. Кнопка выхода (в разработке)
 
-###Ветка Дарьи 
+### Ветка Дарьи 
 
 [darya_branch](https://github.com/cmc-haskell-2018/hive/tree/darya_branch)
 
@@ -29,7 +29,7 @@
 2. Сохранения для различных пользователей (одновременное существовавние различных сохранений).
 3. Пользователь указывается в качетсве аргумента при запуске
 
-###Ветка Константина 
+### Ветка Константина 
 
 [SaurinIndev](https://github.com/cmc-haskell-2018/hive/tree/SaurinIndev)
 
