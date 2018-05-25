@@ -16,6 +16,7 @@ import Data.Maybe
 -- | Список координат всех допустимых клеток для постановки фишки
 possibleMoves :: Game -> [Coord]
 possibleMoves Game{gameBoard = board, gameMovable = Just((x,y), (player, ins,_)), gameStepBeige = stepBeige, gameStepBlack = stepBlack}
+  | (ins == Beetle || ins == Mosquito) && (length (fromMaybe [] $ Map.lookup (x, y) board) > 0) = [(x-1, y+1), (x, y+2), (x+1, y+1), (x-1, y-1), (x+1, y-1), (x, y-2)]
   | isSide == False && doesNotTear (x, y) board == False = []        -- если взятая фишка разрывает улей
   | player == Beige && step == First = [(0,0)]      -- первый ход бежевых
   | player == Black && step == First = [(0,2), (1,1), (1,-1), (0,-2), (-1,-1), (-1,1)]     -- первый ход черных
@@ -139,7 +140,10 @@ queen_cells (x,y) board = coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coor
                                                               then [(x-1,y+1)] else []
 
 beetle_cells :: Coord -> Board -> [Coord]
-beetle_cells (x,y) board = coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coord6
+beetle_cells (x,y) board = -- if (length (fromMaybe [] $ Map.lookup (x, y) board) > 1) 
+--   then [(x-1, y+1), (x, y+2), (x+1, y+1), (x-1, y-1), (x+1, y-1), (x, y-2)] 
+--    else 
+  coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coord6
  where 
     coord1 = if Map.member (x, y+2)   board || Map.member (x-1, y+1) board || Map.member (x+1, y+1) board
                                                               then [(x,y+2)] else [] 
@@ -152,7 +156,9 @@ beetle_cells (x,y) board = coord1 ++ coord2 ++ coord3 ++ coord4 ++ coord5 ++ coo
     coord5 = if Map.member (x-1, y-1) board || Map.member (x-1, y+1) board || Map.member (x, y-2) board
                                                               then [(x-1,y-1)] else [] 
     coord6 = if Map.member (x-1, y+1) board || Map.member (x, y+2) board || Map.member (x-1, y-1) board
-                                                              then [(x-1,y+1)] else [] 
+
+                                                              then [(x-1,y+1)] else []  
+
 -- ======================================
 -- Божья коровка
 -- ======================================
