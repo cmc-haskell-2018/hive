@@ -37,4 +37,4 @@ updateGame _ game
   | otherwise = makeMove put $ takePiece take game
     where
       (take, put) = bot game
-      bot = futurePlusPrinciplesBot 2 [getCloser 1, getCloser 2, bringIn Ant, bringIn Beetle, bringIn Hopper]
+      bot = futurePlusPrinciplesBot 2 [getCloser 1, getCloser 2, bringIn Ant, bringIn Beetle, bringIn Mosquito, bringIn LadyBug, bringIn Hopper]

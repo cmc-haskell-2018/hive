@@ -20,7 +20,7 @@ main = do
     bgColor = white   -- цвет фона
     fps     = 5      -- кол-во кадров в секунду
     
-    bot1 = futurePlusPrinciplesBot 2 [getCloser 1, getCloser 2, bringIn Ant, bringIn Beetle, bringIn Hopper]
+    bot1 = futurePlusPrinciplesBot 2 [getCloser 1, getCloser 2, bringIn Ant, bringIn Beetle, bringIn Mosquito, bringIn LadyBug, bringIn Hopper]
     bot2 = futurePlusPrinciplesBot 0 []
     
 -- | Обработка нажатия клавиш мыши
